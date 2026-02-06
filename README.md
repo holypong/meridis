@@ -89,14 +89,14 @@
 
 ## redis のインストール
 
-### windows版redisのインストール
+### Windows版Redisのインストール
 参考：
 
 1. 下記サイトからredisインストーラ(msi)をダウンロードする<br>
 https://github.com/MicrosoftArchive/redis/releases
 1. ダウンロードした「Redis-x64***.msi」をダブルクリックしてredisをインストールする。
 
-### WSL(Ubuntu)版redisのインストール
+### WSL(Ubuntu)版Redisのインストール
 参考：
 https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-20-04-ja
 
@@ -105,7 +105,15 @@ sudo apt update
 sudo apt install redis-server
 ```
 
-# redis 動作確認
+### MacOS版Redisのインストール
+参考：
+https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis/install-redis-on-mac-os/
+
+```
+brew install redis
+```
+
+# Redis 動作確認
 
 ## (A) Windows/Ubuntuのローカルredisサーバーにアクセスする場合
 
@@ -118,10 +126,11 @@ redis-server
 
 
 ### (2) Redis-Cliを起動
+別ターミナルを開く
 ```
 redis-cli
 
-PS C:\Users\holyp> redis-cli
+> redis-cli
 127.0.0.1:6379> ping
 PONG
 127.0.0.1:6379> keys *
@@ -130,8 +139,21 @@ PONG
 ```
 
 - Redisのクライアントからサーバーに"ping"を打ったとき"PONG"が返れば導通成功です
-- 初回ではRedisのキーは空の状態です
+- 初回ではRedisのキーは空の状態です。初期状態にしたい場合は以下のコマンドを実行してください
+```
+> redis-cli
+127.0.0.1:6379> flushall
+...
+127.0.0.1:6379> keys *
+(empty list or set)
+127.0.0.1:6379> exit
+```
+
+
+
+
 - [Redisキーを作成する](#redisキーを作成する)に移動します。
+
 
 ## (B) WindowsからWSLのredisサーバーにアクセスする場合
 
@@ -217,8 +239,7 @@ sudo nano /etc/redis/redis.conf
 
 ### 使い方
 - Redisサーバーが起動している必要があります。
-- 起動時にRedisサーバーのIPアドレスをユーザーに尋ねます。
-- 異なるサブネットのRedisサーバーにアクセスする場合、適切なIPアドレスを入力してください。
+- 起動時にRedisサーバーのIPアドレスが聞かれるので、`127.0.0.1`を入れてください。異なるサブネットのRedisサーバーにアクセスする場合、適切なIPアドレスを入力してください。
 - 入力されたIPアドレスでRedisサーバーに接続を試みます。
 - キーの初期化は一度だけ行えば十分です。繰り返し実行しても既存キーは上書きされません。
 
