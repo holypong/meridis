@@ -262,8 +262,13 @@ PONG
 
 - `meridis_manager.py` は Redis と UDP 間の双方向データ転送を管理するデーモン型ユーティリティです。
 - Redis のハッシュデータを Meridim90 フォーマットに変換して UDP 送信し、UDP で受信した Meridim90 データを Redis に書き戻します。
-- 使用可能なRedisキー: `meridis_sim_pub`, `meridis_mcp_pub`, `meridis_console_pub`, `meridis_mgr_pub`
+- 使用可能なRedisキー: `meridis_sim_pub`, `meridis_calc_pub`, `meridis_console_pub`, `meridis_mgr_pub`, `meridis_mcp_pub`
 - シミュレーション環境と実機ロボットの間でリアルタイムデータ交換を実現する中核的なブリッジ機能を提供します。
+  - シミュレーションサンプルプログラムとして、Mujocoをベースとする**merimujoco**を公開しています
+  https://github.com/holypong/merimujoco
+
+![merimujoco](image/merimujoco.png)
+
 
 #### アーキテクチャ図
 
@@ -311,6 +316,7 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 ### マネージャー設定
 
 #### Sim2Real
+
 - `mgr_sim2real.json`
 
 以下は `mgr_sim2real.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
