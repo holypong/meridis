@@ -58,7 +58,7 @@
     - [注記](#注記-3)
   - [例](#例-3)
 
-## redis とは
+## Redis とは
 
 - Redis は高速なインメモリ型のキー・バリュー型データストアで、キャッシュ、メッセージブローカー、永続化ストアなど複数の用途で使われます。
 - 本リポジトリでは主にロボット制御データ（Meridim 形式の配列）を一時的に共有・受渡しするために利用しています。
@@ -268,8 +268,6 @@ redis-cli
 127.0.0.1:6379> ping
 PONG
 127.0.0.1:6379> keys *
-(empty list or set)
-127.0.0.1:6379> keys *
 1) "meridis_mcp_pub"
 2) "meridis_console_pub"
 3) "meridis_mgr_pub"
@@ -285,8 +283,11 @@ PONG
 - Redis のハッシュデータを Meridim90 フォーマットに変換して UDP 送信し、UDP で受信した Meridim90 データを Redis に書き戻します。
 - 使用可能なRedisキー: `meridis_sim_pub`, `meridis_calc_pub`, `meridis_console_pub`, `meridis_mgr_pub`, `meridis_mcp_pub`
 - シミュレーション環境と実機ロボットの間でリアルタイムデータ交換を実現する中核的なブリッジ機能を提供します。
-  - シミュレーションサンプルプログラムとして、Mujocoをベースとする**merimujoco**を公開しています
+  - シミュレーションサンプルプログラムとして、Mujocoをベースとする
+  **merimujoco**を公開しています
+
   https://github.com/holypong/merimujoco
+
 
 ![merimujoco](image/merimujoco.png)
 
