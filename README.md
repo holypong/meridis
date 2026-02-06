@@ -20,6 +20,17 @@
   - [使い方](#使い方)
   - [動作](#動作)
 - [Redisキーを確認する](#redisキーを確認する)
+- [ロボット動作を管理する](#ロボット動作を管理する)
+  - [meridis_manager.py](#meridis_managerpy)
+  - [使い方](#使い方-3)
+  - [引数](#引数-2)
+  - [動作](#動作-3)
+  - [マネージャー設定](#マネージャー設定)
+    - [Sim2Real](#sim2real)
+    - [Real2Sim](#real2sim)
+    - [Real](#real)
+  - [ネットワーク設定](#ネットワーク設定)
+  - [足データ設定](#足データ設定)
 - [ライブラリの動作を確認する](#ライブラリの動作を確認する)
   - [redis_transfer.py](#redis_transferpy)
     - [使い方](#使い方-1)
@@ -33,16 +44,6 @@
     - [動作](#動作-2)
     - [注記](#注記-1)
     - [例](#例-1)
-- [meridis_manager.py](#meridis_managerpy)
-  - [使い方](#使い方-3)
-  - [引数](#引数-2)
-  - [動作](#動作-3)
-  - [マネージャー設定](#マネージャー設定)
-    - [Sim2Real](#sim2real)
-    - [Real2Sim](#real2sim)
-    - [Real](#real)
-  - [ネットワーク設定](#ネットワーク設定)
-  - [足データ設定](#足データ設定)
   - [redis_plotter.py](#redis_plotterpy)
     - [使い方](#使い方-4)
     - [引数](#引数-3)
@@ -256,109 +257,8 @@ PONG
 127.0.0.1:6379> exit
 ```
 
-
-## ライブラリの動作を確認する
-
-### redis_transfer.py
-
-- `redis_transfer.py` は Redisサーバーの指定キーにMeridian形式のハッシュデータを書き込むためのデータ転送ユーティリティです。
-- 主に他のアプリケーションからライブラリとしてコールされますが、テスト用途で単体実行も可能です。
-- Redis接続の動作確認やデータ書き込みのテスト機能を提供します。
-
-#### 使い方
-
-```bash
-python redis_transfer.py [--host HOST] [--port PORT] [--key KEY]
-```
-
-#### 引数
-
-- `--host`（デフォルト: `localhost`）: Redis サーバーのホスト名またはIPアドレス
-- `--port`（デフォルト: `6379`）: Redis サーバーのポート番号
-- `--key`（デフォルト: `meridis_calc_hub`）: 書き込み先となる Redis のハッシュキー名
-
-#### 動作
-
-- インスタンス生成時に TCP レベルの接続チェック（`socket.create_connection`）を実行し、その後 Redis の `PING` コマンドで接続確認を行います。接続タイムアウトは 0.5 秒で、到達不能なサーバーに対して迅速に失敗します。
-- 指定キーが存在しない場合、90 要素のハッシュ（フィールド名: `"0"`〜`"89"`）を自動初期化します。
-- `set_data()` メソッドは 90 要素の数値配列を受け取り、フィールド名を文字列化してハッシュに一括書き込みします。値は数値文字列として保存され、`redis_receiver.py` での `float()` 変換に対応します。
-- テスト用の `main()` 関数では、3 回の反復処理で 90 要素のダミーデータを書き込みます。各反復で全要素を 0.1 ずつインクリメントしてデータ変化をシミュレートします。
-- 書き込み処理中のエラーは適切にハンドリングされ、エラー内容が標準出力に表示されます。
-
-#### 注記
-
-- ハッシュのフィールド名は文字列の連番（`"0"`, `"1"`, ..., `"89"`）で統一する必要があります。受信側アプリケーションは数値順序での読み取りを前提としています。
-- `connect_timeout` および `socket_timeout` パラメータは `RedisTransfer` クラスのコンストラクタで設定可能（デフォルト: 0.5秒）ですが、CLI オプションとしては現在公開されていません。
-- データは Meridim90 フォーマット（90要素の数値配列）に準拠することを前提として設計されています。
-- ライブラリとして使用する際は、`RedisTransfer` クラスの `set_data()` メソッドで配列データを Redis に転送できます。
-
-### 例
-
-```bash
-# ローカルサーバーでデフォルトキーにデータ送信
-python redis_transfer.py
-
-Redis list 'meridis_calc_pub' already exists.
-Starting data transfer to Redis server localhost:6379 with key 'meridis_calc_pub'
-Wrote 90-element hash to 'meridis_calc_pub' (iteration 1)
-Wrote 90-element hash to 'meridis_calc_pub' (iteration 2)
-Wrote 90-element hash to 'meridis_calc_pub' (iteration 3)
-Completed.
-```
-
-実装の詳細や利用可能なクラス・メソッドについては [redis_transfer.py](redis_transfer.py) を参照してください（`RedisTransfer`、`set_data`、`check_connection`、`initialize_hash` など）。
-
-
-### redis_receiver.py
-
-- `redis_receiver.py` は Redisサーバーの指定キーに保存されたMeridian形式のハッシュデータを取得するためのユーティリティです。
-- 主に他のアプリケーションからライブラリとしてコールされますが、単体でも実行可能です。
-- Redis接続の動作確認やデータ取得のテスト用途にも利用できます。
-
-#### 使い方
-
-```bash
-python redis_receiver.py [--host HOST] [--port PORT] [--key KEY] [--window SEC]
-```
-
-#### 引数
-
-- `--host`（デフォルト: `localhost`）: Redis サーバーのホスト名またはIPアドレス
-- `--port`（デフォルト: `6379`）: Redis サーバーのポート番号
-- `--key`（デフォルト: `meridis`）: 取得する Redis のハッシュキー名
-- `--window`（デフォルト: `5.0`）: 時系列データの表示時間幅（秒）。内部バッファサイズに影響します
-
-#### 動作
-
-- 起動時に Redis サーバーへの接続テストを実行し、指定キーの存在確認を行います。接続失敗やキー不存在の場合はエラーメッセージを表示して終了します。
-- 実装では TCP レベルの接続チェック（`socket.create_connection`）を先行し、その後 Redis の `PING` コマンドで確認します。接続タイムアウトは 0.5 秒で、到達不能なサーバーに対して迅速に失敗します。
-- 指定ハッシュキーからデータを読み取り、フィールド名が連番文字列（`"0"`〜`"N-1"`）として格納されている前提で、値を float 型に変換して処理します。
-- デフォルトでは 10 回のデータ取得ループを実行し、各ループ間で 0.5 秒待機します。データ要素数と内容を標準出力に表示します。
-- Redis接続エラーやデータ変換エラーは適切にハンドリングされ、エラーメッセージとして出力されます。
-
-#### 注記
-
-- Redis ハッシュのフィールドは文字列の連番（`"0"`, `"1"`, ..., `"89"`）で格納される必要があります。受信側は数値順序でソートして値を読み取ります。
-- `connect_timeout` および `socket_timeout` パラメータは `RedisReceiver` クラスのコンストラクタで設定可能（デフォルト: 0.5秒）ですが、現在 CLI オプションとしては公開されていません。
-- 時系列データ管理機能により、指定された時間ウィンドウ内のデータを効率的にバッファリングします。
-- ライブラリとして使用する際は、`RedisReceiver` クラスの `get_data()` メソッドで最新データを取得できます。
-
-#### 例
-
-```bash
-# ローカルサーバーでデフォルト設定での動作確認
-python redis_receiver.py
-
-Redis server localhost:6379 - starting data retrieval for key 'meridis_calc_pub'
-Retrieved data: 90 elements
-Data: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0]
-...
-```
-
-実装の詳細や利用可能なクラス・メソッドについては [redis_receiver.py](redis_receiver.py) を参照してください（`RedisReceiver`、`check_connection`、`get_data`、`get_time_data` など）。
-
-
-## meridis_manager.py
+## ロボット動作を管理する
+### meridis_manager.py
 
 - `meridis_manager.py` は Redis と UDP 間の双方向データ転送を管理するデーモン型ユーティリティです。
 - Redis のハッシュデータを Meridim90 フォーマットに変換して UDP 送信し、UDP で受信した Meridim90 データを Redis に書き戻します。
@@ -586,6 +486,107 @@ sequenceDiagram
   for i in range(76, 80):   # x,y,z,(r)
       data[i] = float(data[i] / 100)
 ```
+
+## ライブラリの動作を確認する
+
+### redis_transfer.py
+
+- `redis_transfer.py` は Redisサーバーの指定キーにMeridian形式のハッシュデータを書き込むためのデータ転送ユーティリティです。
+- 主に他のアプリケーションからライブラリとしてコールされますが、テスト用途で単体実行も可能です。
+- Redis接続の動作確認やデータ書き込みのテスト機能を提供します。
+
+#### 使い方
+
+```bash
+python redis_transfer.py [--host HOST] [--port PORT] [--key KEY]
+```
+
+#### 引数
+
+- `--host`（デフォルト: `localhost`）: Redis サーバーのホスト名またはIPアドレス
+- `--port`（デフォルト: `6379`）: Redis サーバーのポート番号
+- `--key`（デフォルト: `meridis_calc_hub`）: 書き込み先となる Redis のハッシュキー名
+
+#### 動作
+
+- インスタンス生成時に TCP レベルの接続チェック（`socket.create_connection`）を実行し、その後 Redis の `PING` コマンドで接続確認を行います。接続タイムアウトは 0.5 秒で、到達不能なサーバーに対して迅速に失敗します。
+- 指定キーが存在しない場合、90 要素のハッシュ（フィールド名: `"0"`〜`"89"`）を自動初期化します。
+- `set_data()` メソッドは 90 要素の数値配列を受け取り、フィールド名を文字列化してハッシュに一括書き込みします。値は数値文字列として保存され、`redis_receiver.py` での `float()` 変換に対応します。
+- テスト用の `main()` 関数では、3 回の反復処理で 90 要素のダミーデータを書き込みます。各反復で全要素を 0.1 ずつインクリメントしてデータ変化をシミュレートします。
+- 書き込み処理中のエラーは適切にハンドリングされ、エラー内容が標準出力に表示されます。
+
+#### 注記
+
+- ハッシュのフィールド名は文字列の連番（`"0"`, `"1"`, ..., `"89"`）で統一する必要があります。受信側アプリケーションは数値順序での読み取りを前提としています。
+- `connect_timeout` および `socket_timeout` パラメータは `RedisTransfer` クラスのコンストラクタで設定可能（デフォルト: 0.5秒）ですが、CLI オプションとしては現在公開されていません。
+- データは Meridim90 フォーマット（90要素の数値配列）に準拠することを前提として設計されています。
+- ライブラリとして使用する際は、`RedisTransfer` クラスの `set_data()` メソッドで配列データを Redis に転送できます。
+
+### 例
+
+```bash
+# ローカルサーバーでデフォルトキーにデータ送信
+python redis_transfer.py
+
+Redis list 'meridis_calc_pub' already exists.
+Starting data transfer to Redis server localhost:6379 with key 'meridis_calc_pub'
+Wrote 90-element hash to 'meridis_calc_pub' (iteration 1)
+Wrote 90-element hash to 'meridis_calc_pub' (iteration 2)
+Wrote 90-element hash to 'meridis_calc_pub' (iteration 3)
+Completed.
+```
+
+実装の詳細や利用可能なクラス・メソッドについては [redis_transfer.py](redis_transfer.py) を参照してください（`RedisTransfer`、`set_data`、`check_connection`、`initialize_hash` など）。
+
+
+### redis_receiver.py
+
+- `redis_receiver.py` は Redisサーバーの指定キーに保存されたMeridian形式のハッシュデータを取得するためのユーティリティです。
+- 主に他のアプリケーションからライブラリとしてコールされますが、単体でも実行可能です。
+- Redis接続の動作確認やデータ取得のテスト用途にも利用できます。
+
+#### 使い方
+
+```bash
+python redis_receiver.py [--host HOST] [--port PORT] [--key KEY] [--window SEC]
+```
+
+#### 引数
+
+- `--host`（デフォルト: `localhost`）: Redis サーバーのホスト名またはIPアドレス
+- `--port`（デフォルト: `6379`）: Redis サーバーのポート番号
+- `--key`（デフォルト: `meridis`）: 取得する Redis のハッシュキー名
+- `--window`（デフォルト: `5.0`）: 時系列データの表示時間幅（秒）。内部バッファサイズに影響します
+
+#### 動作
+
+- 起動時に Redis サーバーへの接続テストを実行し、指定キーの存在確認を行います。接続失敗やキー不存在の場合はエラーメッセージを表示して終了します。
+- 実装では TCP レベルの接続チェック（`socket.create_connection`）を先行し、その後 Redis の `PING` コマンドで確認します。接続タイムアウトは 0.5 秒で、到達不能なサーバーに対して迅速に失敗します。
+- 指定ハッシュキーからデータを読み取り、フィールド名が連番文字列（`"0"`〜`"N-1"`）として格納されている前提で、値を float 型に変換して処理します。
+- デフォルトでは 10 回のデータ取得ループを実行し、各ループ間で 0.5 秒待機します。データ要素数と内容を標準出力に表示します。
+- Redis接続エラーやデータ変換エラーは適切にハンドリングされ、エラーメッセージとして出力されます。
+
+#### 注記
+
+- Redis ハッシュのフィールドは文字列の連番（`"0"`, `"1"`, ..., `"89"`）で格納される必要があります。受信側は数値順序でソートして値を読み取ります。
+- `connect_timeout` および `socket_timeout` パラメータは `RedisReceiver` クラスのコンストラクタで設定可能（デフォルト: 0.5秒）ですが、現在 CLI オプションとしては公開されていません。
+- 時系列データ管理機能により、指定された時間ウィンドウ内のデータを効率的にバッファリングします。
+- ライブラリとして使用する際は、`RedisReceiver` クラスの `get_data()` メソッドで最新データを取得できます。
+
+#### 例
+
+```bash
+# ローカルサーバーでデフォルト設定での動作確認
+python redis_receiver.py
+
+Redis server localhost:6379 - starting data retrieval for key 'meridis_calc_pub'
+Retrieved data: 90 elements
+Data: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0]
+...
+```
+
+実装の詳細や利用可能なクラス・メソッドについては [redis_receiver.py](redis_receiver.py) を参照してください（`RedisReceiver`、`check_connection`、`get_data`、`get_time_data` など）。
+
 
 ### redis_plotter.py
 
