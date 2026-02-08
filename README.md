@@ -1,133 +1,125 @@
-# redis module README
+# meridis
 
-## 目次
+`meridis` は Redis をベースとした**ロボット制御データブリッジツール**です。  
+シミュレーション、実機ロボット、AIエージェントを共通のデータ構造でシームレスに接続します。
 
-- [redis とは](#redis-とは)
-- [redis のインストール](#redis-のインストール)
-  - [windows版redisのインストール](#windows版redisのインストール)
-  - [WSL(Ubuntu)版redisのインストール](#wslubuntu版redisのインストール)
-- [redis 動作確認](#redis-動作確認)
-  - [(A) Windows/Ubuntuのローカルredisサーバーにアクセスする場合](#a-windowsubuntuのローカルredisサーバーにアクセスする場合)
-    - [(1) Redis-Serverを起動](#1-redis-serverを起動)
-    - [(2) Redis-Cliを起動](#2-redis-cliを起動)
-  - [(B) WindowsからWSLのredisサーバーにアクセスする場合](#b-windowsからwslのredisサーバーにアクセスする場合)
-    - [(1) Windows Operation](#1-windows-operation)
-    - [(2) Windows Operation](#2-windows-operation)
-    - [(3) WSL22.04 Operation](#3-wsl2204-operation)
-    - [(4) Windows Operation](#4-windows-operation)
-- [Redisキーを作成する](#redisキーを作成する)
-  - [create_redis_key.py](#create_meridis_keyspy)
-  - [使い方](#使い方)
-  - [動作](#動作)
-- [Redisキーを確認する](#redisキーを確認する)
-- [ロボット動作を管理する](#ロボット動作を管理する)
-  - [meridis_manager.py](#meridis_managerpy)
-  - [使い方](#使い方-3)
-  - [引数](#引数-2)
-  - [動作](#動作-3)
-  - [マネージャー設定](#マネージャー設定)
-    - [Sim2Real](#sim2real)
-    - [Real2Sim](#real2sim)
-    - [Real](#real)
-  - [ネットワーク設定](#ネットワーク設定)
-  - [足データ設定](#足データ設定)
-- [ライブラリの動作を確認する](#ライブラリの動作を確認する)
-  - [redis_transfer.py](#redis_transferpy)
-    - [使い方](#使い方-1)
-    - [引数](#引数)
-    - [動作](#動作-1)
-    - [注記](#注記)
-  - [例](#例)
-  - [redis_receiver.py](#redis_receiverpy)
-    - [使い方](#使い方-2)
-    - [引数](#引数-1)
-    - [動作](#動作-2)
-    - [注記](#注記-1)
-    - [例](#例-1)
-  - [redis_plotter.py](#redis_plotterpy)
-    - [使い方](#使い方-4)
-    - [引数](#引数-3)
-    - [動作](#動作-4)
-    - [表示内容](#表示内容)
-    - [注記](#注記-2)
-  - [例](#例-2)
-  - [udp_sender.py](#udp_senderpy)
-    - [使い方](#使い方-5)
-    - [引数](#引数-4)
-    - [動作](#動作-5)
-    - [注記](#注記-3)
-  - [例](#例-3)
+## 背景
 
-## Redis とは
+- 近年、AIの行動範囲はコンピュータの中だけでなく現実世界にも拡がりはじめました。
+- とくに、身体を得て行動し現実世界に物理的に作用するようになったAIを、フィジカルAI(Physical AI)またはエンボディードAI(Embodied AI) と呼びます。
+- ロボットを現実世界で動かす前に、何度でも試行を繰り返し、自分と周囲環境を壊すことなく、安全に検証できる、シミュレーション環境の価値が高まっています。
+- 従来の方法では、シミュレータごとに異なるインターフェースを実装する必要があり、開発コストが増大し、コードの再利用性も低下していました。
+- また、複数のプロセス（シミュレーション、実機制御、AI制御、監視ツール）が同時に同じデータにアクセスし、低遅延で情報をやり取りする仕組みが求められていました。
+- **meridis**は、高速インメモリデータベース Redis を共通インターフェースとして使用することで、これらの課題を解決します。
 
-- Redis は高速なインメモリ型のキー・バリュー型データストアで、キャッシュ、メッセージブローカー、永続化ストアなど複数の用途で使われます。
-- 本リポジトリでは主にロボット制御データ（Meridim 形式の配列）を一時的に共有・受渡しするために利用しています。
+## 目的
 
-背景・目的:
-- センサーデータや制御指令を低遅延でやり取りするために、ディスクI/Oの遅延を避けつつプロセス間で値を共有したい。
-- 複数のプロセス（シミュレーション、実機インターフェース、監視ツール）が同じデータを容易に読み書きできる共通のバッファを提供する。
+### 研究開発
 
-主な機能と特徴:
-- 高速な読み書き（メモリ上での操作）によりリアルタイム性の高いデータ交換に適する。
-- ハッシュ、リスト、セット、ソート済みセットなど多様なデータ構造をサポートしているため、用途に応じた格納方法を選べる。
-- 簡易な永続化オプション（RDB/AOF）により、必要に応じてディスク保存も可能。
-- パブリッシュ／サブスクライブ（Pub/Sub）やトランザクション、Lua スクリプトで柔軟な連携が可能。
+- フィジカルAI・エンボディードAIの研究では、アルゴリズムを現実に近い条件で効率よく検証できることが重要です。
+- シミュレーション環境で検証したアルゴリズムを、コードをほとんど変更することなく実機ロボットに適用できれば、研究開発サイクルを大幅に高速化できます。
+- **meridis**は、共通のデータ構造（Meridim90フォーマット）と Redis という標準的な技術を組み合わせることで、以下を実現します：
+  - シミュレーション環境で検証した制御ロジックを、そのまま実機に適用
+  - 複数のシミュレータ（MuJoCo, Genesis, NVIDIA Isaac Sim など）で同じ制御コードを再利用
+  - データの記録・再生による再現性の高い実験環境の構築
+  - 実機とシミュレーションのデジタルツイン（同期動作）の実現
 
-本リポジトリでの使い方:
-- Meridim 形式の配列は Redis のハッシュ（キー名例: `meridis`）に連番フィールド（"0"〜"89"）として格納し、`redis_receiver.py` / `redis_transfer.py` で読み書きします。
-- 受信側はハッシュの値を数値（float）として扱い、送信側は整数や符号付き 16bit 値で格納する運用が想定されています。
-- `Meridian_console.py` ではUIのチェックボックスでRedisのPub/Subを制御可能。SubでRedisからデータを読み取りロボット制御に反映、Pubでコンソールの制御データをRedisに送信します。
+### エンジニアリング
 
-ユースケース:
-- シミュレーション→実機: シミュレータが生成した制御コマンドを Redis に書き込み、インターフェースがそれを読み取って UDP 経由で実機へ送信する。
-- 実機→シミュレーション: 実機から受け取ったセンサーデータを Redis に書き戻し、シミュレーションや可視化ツールがそれを読み取る。
-- データ監視・ロギング: 別プロセスで Redis のハッシュやメトリクスをポーリングして可視化やログ保存を行う。
+- ロボット開発では、制御システム、シミュレータ、監視ツール、AIエージェントなど、複数のコンポーネントを統合する必要があります。
+- これらのコンポーネント間でデータをやり取りする際、独自プロトコルを実装すると保守性が低下し、拡張が困難になります。
+- **meridis**は、Redis という業界標準のインメモリデータベースを共通インターフェースとして使用することで、以下を実現します：
+  - AIエージェント（MCPサーバー経由）からの指令を、シミュレーションでも実機でも同じ手順で実行
+  - 各コンポーネント（シミュレータ、制御システム、監視ツール）を独立して開発・テスト可能
+  - 既存システムとの統合が容易（Redis クライアントライブラリは多くの言語で利用可能）
+  - リアルタイム監視・ロギング・デバッグ機能の容易な追加
+  - 「考える → 試す → 評価する」という開発ループを、AIエージェントが自動的に実行できる基盤の提供
 
-運用上の注意:
-- ネットワーク越し・Docker越しに Redis を公開する場合は `protected-mode` や認証設定を適切に構成すること。
-- 高頻度で大容量のデータを書き込む用途ではメモリ使用量に注意すること。
+## 概要
 
-## redis のインストール
+本リポジトリの**meridis**は、高速なインメモリデータベース **Redis** を共通インターフェースとして、ロボットシミュレーション、実機ロボット、AIエージェントなどの外部システムをシームレスに接続するためのブリッジツール群です。
 
-### Windows版Redisのインストール
-参考：
+**対応シミュレータ:**
+- ✅ **merimujoco**（MuJoCo ベース）- [リポジトリ](https://github.com/holypong/merimujoco)
+![merimujoco](image/merimujoco.png)
+
+- ✅ **Genesis AI**
+![merimujoco](image/genesisai.png)
+
+- ✅ **NVIDIA Isaac Sim**
+![merimujoco](image/isaacsim.png)
+
+
+## 主な機能
+
+- **シミュレーションと実機の双方向連携**
+  - **Sim2Real**: シミュレーションの制御指令を実機ロボットに送信
+  - **Real2Sim**: 実機ロボットの動作をシミュレーションで再現
+  - **デジタルツイン**: シミュレーションと実機を同期させて同時動作
+
+- **UDP/Redis ブリッジマネージャー(`meridis_manager.py`）**
+  - **Redis**とUDPの組合わせで、ロボットシミュレーション、実機ロボット、AIエージェントなどの外部システムをシームレスに接続するためのブリッジの働きをします。
+
+- **豊富なユーティリティツール**
+  - データ転送ライブラリ（`redis_transfer.py`）
+  - データ受信ライブラリ（`redis_receiver.py`）
+  - リアルタイムデータ可視化ツール（`redis_plotter.py`）
+
+- **共通データ構造（Meridim90）**  
+  90要素の数値配列として定義されたロボット制御データフォーマットを提供
+
+- **Redis経由のリアルタイムデータ交換**  
+  インメモリデータベースRedis経由で、複数のシステム間で制御データ・状態データを高速に送受信
+
+- **マルチプラットフォーム対応**  
+  Windows / Linux / WSL / macOS で動作確認済
+
+---
+## Redis のインストール
+
+自身の使用環境に合わせてインストール方法を選択してください。
+
+### Windowsの場合
 
 1. 下記サイトからredisインストーラ(msi)をダウンロードする<br>
 https://github.com/MicrosoftArchive/redis/releases
 1. ダウンロードした「Redis-x64***.msi」をダブルクリックしてredisをインストールする。
 
-### WSL(Ubuntu)版Redisのインストール
-参考：
+### Linux-Ubuntuの場合
+1. 下記サイトを確認する
 https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-20-04-ja
-
+1. ターミナルからコマンドでインストールする
 ```bash
 sudo apt update
 sudo apt install redis-server
 ```
 
-### MacOS版Redisのインストール
-参考：
+### MacOS版の場合
+1. 下記サイトを確認する
 https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis/install-redis-on-mac-os/
-
-```
+1. ターミナルからコマンドでインストールする
+```bash
 brew install redis
 ```
 
-# Redis 動作確認
+# Redisサーバーの動作確認する
 
-## (A) Windows/Ubuntuのローカルredisサーバーにアクセスする場合
+自身の環境で稼働させているRedisサーバーの状態に合わせて動作確認方法を選択してください。
 
-### (1) Redis-Serverを起動
-```
+## ローカルのRedisサーバーにアクセスする場合
+
+- 1つのPC・1つのOSで、Redisサーバーを稼働させているケースを想定
+
+
+1. Redis-Serverを起動
+```bash
 redis-server
 ```
-
 ![Redis Server](image/redis-server.png)
 
-
-### (2) Redis-Cliを起動
+2. Redis-Cliを起動
 別ターミナルを開く
-```
+```bash
 redis-cli
 
 > redis-cli
@@ -149,21 +141,19 @@ PONG
 127.0.0.1:6379> exit
 ```
 
-
-
-
 - [Redisキーを作成する](#redisキーを作成する)に移動します。
 
 
-## (B) WindowsからWSLのredisサーバーにアクセスする場合
+## 別サブネットのRedisサーバーにアクセスする場合
 
-### (1) Windows Operation
-```
+- 1つのPC・2つのOSで、Redisサーバーを稼働させているケースを想定
+（例えば、Windows 11 と WSL-Ubuntu を連携させるなど）　
+
+1. Windows Operation
+```basj
 redis-server
 ```
-
-### (2) Windows Operation
-
+2. Windows Operation
 ```bash
 > redis-cli -h 172.21.242.172
 172.21.242.172:6379> ping
@@ -175,9 +165,8 @@ redis-server
 
 127.0.0.1:6379> exit
 ```
-
-### (3) WSL22.04 Operation
-```
+3. WSL22.04 Operation
+```bash
 > redis-cli
 
 127.0.0.1:6379> CONFIG GET protected-mode
@@ -194,8 +183,8 @@ OK
 127.0.0.1:6379> exit
 ```
 
-### (4) Windows Operation
-```
+4. Windows Operation
+```bash
 > redis-cli -h 172.21.242.172
 
 172.21.242.172:6379> ping
@@ -211,7 +200,7 @@ PONG
 - [Redisキーを作成する](#redisキーを作成する) に移動します。
 
 
-以上を毎回やるのがめんどくさいのでWSL内のconfを書き換えておくとよい。
+以上を毎回やるのが面倒な場合は、ubuntuのconfを書き換えておくとよい。
 
 ```bash
 sudo nano /etc/redis/redis.conf
@@ -229,7 +218,6 @@ sudo nano /etc/redis/redis.conf
 + protected-mode no
 ```
 
-
 ## Redisキーを作成する
 
 ### create_meridis_keys.py
@@ -238,7 +226,7 @@ sudo nano /etc/redis/redis.conf
 - Meridisシステムのセットアップ時に使用します。
 
 ### 使い方
-- Redisサーバーが起動している必要があります。
+- すでにRedisサーバーが起動している必要があります。
 - 起動時にRedisサーバーのIPアドレスが聞かれるので、先ほどのRedis-cliで表示されたIPアドレスを入れてください（通常は`127.0.0.1`）。異なるサブネットのRedisサーバーにアクセスする場合、適切なIPアドレスを入力してください。
 - 入力されたIPアドレスでRedisサーバーに接続を試みます。
 - キーの初期化は一度だけ行えば十分です。繰り返し実行しても既存キーは上書きされません。
@@ -263,7 +251,7 @@ All keys created.
 - 接続に失敗した場合はエラーメッセージを表示してスキップします。
 
 ## Redisキーを確認する
-```
+```bash
 redis-cli
 127.0.0.1:6379> ping
 PONG
@@ -279,18 +267,12 @@ PONG
 ## ロボット動作を管理する
 ### meridis_manager.py
 
-- `meridis_manager.py` は Redis と UDP 間の双方向データ転送を管理するデーモン型ユーティリティです。
-- Redis のハッシュデータを Meridim90 フォーマットに変換して UDP 送信し、UDP で受信した Meridim90 データを Redis に書き戻します。
-- 使用可能なRedisキー: `meridis_sim_pub`, `meridis_calc_pub`, `meridis_console_pub`, `meridis_mgr_pub`, `meridis_mcp_pub`
-- シミュレーション環境と実機ロボットの間でリアルタイムデータ交換を実現する中核的なブリッジ機能を提供します。
-  - シミュレーションサンプルプログラムとして、Mujocoをベースとする
-  **merimujoco**を公開しています
-
+- `meridis_manager.py` はシミュレーション環境と実機ロボットの間でリアルタイムデータ交換を実現する中核的なブリッジ機能を提供します。
+- Mujocoをベースとするシミュレーションプログラム**merimujoco**を公開しています。`meridis_manager.py`と組み合わせる操作手順を「クイックスタート」で説明しています<br>
   https://github.com/holypong/merimujoco
 
 
 ![merimujoco](image/merimujoco.png)
-
 
 #### アーキテクチャ図
 
@@ -515,7 +497,11 @@ sequenceDiagram
       data[i] = float(data[i] / 100)
 ```
 
-## ライブラリの動作を確認する
+
+---
+## ライブラリの詳細
+
+- 以降のライブラリの詳細説明は、プログラム開発時の参考としてください。
 
 ### redis_transfer.py
 
