@@ -13,21 +13,23 @@
   - [オプション](#オプション)
   - [動作](#動作)
   - [マネージャーオプション（--mgr）](#マネージャーオプションmgr)
-    - [Sim2Real: mgr_sim2real.json](#sim2real-mgr_sim2realjson)
-    - [Real2Sim: mgr_real2sim.json](#real2sim-mgr_real2simjson)
-    - [Real: mgr_mcp2real.json](#real-mgr_mcp2realjson)
+    - [mgr_sim2real.json](#mgr_sim2realjson)
+    - [mgr_real2sim.json](#mgr_real2simjson)
+    - [mgr_mcp2real.json](#mgr_mcp2realjson)
   - [ネットワークオプション（--network）](#ネットワークオプションnetwork)
   - [フットオプション(--foot)](#フットオプションfoot)
 - [ライブラリの詳細](#ライブラリの詳細)
-  - [redisデータの送信: redis_transfer.py](#redisデータの送信-redis_transferpy)
-  - [redisデータの受信: redis_receiver.py](#redisデータの受信-redis_receiverpy)
-  - [redisデータのプロット: redis_plotter.py](#redisデータのプロット-redis_plotterpy)
-
+  - [redisデータの送信](#redisデータの送信)
+  - [redisデータの受信](#redisデータの受信)
+  - [redisデータのプロット](#redisデータのプロット)
+ 
 ---
 
 ## 仕様
 
-## ロボット動作を管理する: meridis_manager.py
+## ロボット動作を管理する:
+
+**meridis_manager.py**
 
 - `meridis_manager.py` はシミュレーション環境と実機ロボットの間でリアルタイムデータ交換を実現する中核的なブリッジ機能を提供します。
 - Mujocoをベースとするシミュレーションプログラム**merimujoco**を公開しています。`meridis_manager.py`と組み合わせる操作手順を「クイックスタート」で説明しています<br>
@@ -82,7 +84,9 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 
 ### マネージャーオプション（--mgr）
 
-#### Sim2Real: mgr_sim2real.json
+#### mgr_sim2real.json
+
+Meridianを搭載したロボット実機がある場合、シミュレーションロボットのダンスの動きをロボット実機に同期させることができます。
 
 以下は `mgr_sim2real.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
 
@@ -126,7 +130,9 @@ sequenceDiagram
     MMD->>ROB: UDP送信  // 実機へ演算結果を送信
 ```
 
-### Real2Sim: mgr_real2sim.json
+### mgr_real2sim.json
+
+Meridianを搭載したロボット実機がある場合、ロボット実機の関節の動きをシミュレーション上のロボットで再現できます。
 
 以下は `mgr_real2sim.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
 
@@ -169,7 +175,9 @@ sequenceDiagram
     SIM->>R: HSET meridis_sim_pub // シミュレータが演算結果を格納
 ```
 
-### Real: mgr_mcp2real.json
+### mgr_mcp2real.json
+
+Meridianを搭載したロボット実機がある場合、AIエージェントがMCPサーバー経由でロボット実機の動きを指令します。
 
 以下は `mgr_mcp2real.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
 
@@ -262,7 +270,9 @@ sequenceDiagram
 
 - 以降のライブラリの詳細説明は、プログラム開発時の参考としてください。
 
-### redisデータの送信： redis_transfer.py
+### redisデータの送信
+
+**redis_transfer.py**
 
 - `redis_transfer.py` は Redisサーバーの指定キーにMeridian形式のハッシュデータを書き込むためのデータ転送ユーティリティです。
 - 主に他のアプリケーションからライブラリとしてコールされますが、テスト用途で単体実行も可能です。
@@ -312,7 +322,9 @@ Completed.
 実装の詳細や利用可能なクラス・メソッドについては [redis_transfer.py](redis_transfer.py) を参照してください（`RedisTransfer`、`set_data`、`check_connection`、`initialize_hash` など）。
 
 
-### redisデータの受信： redis_receiver.py
+### redisデータの受信
+
+**redis_receiver.py**
 
 - `redis_receiver.py` は Redisサーバーの指定キーに保存されたMeridian形式のハッシュデータを取得するためのユーティリティです。
 - 主に他のアプリケーションからライブラリとしてコールされますが、単体でも実行可能です。
@@ -361,7 +373,9 @@ Data: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5
 実装の詳細や利用可能なクラス・メソッドについては [redis_receiver.py](redis_receiver.py) を参照してください（`RedisReceiver`、`check_connection`、`get_data`、`get_time_data` など）。
 
 
-### redisデータのプロット： redis_plotter.py
+### redisデータのプロット
+
+**redis_plotter.py**
 
 - `redis_plotter.py` は Redisサーバーに格納されたMeridian形式のハッシュデータをリアルタイムでグラフ表示するためのビジュアライゼーションツールです。
 - ロボットの関節角度や足部位置の時系列変化をリアルタイムで監視・デバッグできます。

@@ -15,7 +15,7 @@
   - [別サブネットのRedisサーバーにアクセスする場合](#別サブネットのredisサーバーにアクセスする場合)
 - [Redisキーを作成する](#redisキーを作成する)
   - [create_meridis_keys.py](#create_meridis_keyspy)
-  - [使い方](#使い方)
+  - [コマンド](#コマンド)
   - [動作](#動作)
 - [Redisキーを確認する](#redisキーを確認する)
 
@@ -185,14 +185,15 @@ sudo nano /etc/redis/redis.conf
 + protected-mode no
 ```
 
-## Redisキーを作成する
+## Redisキーを作成する：
 
-### create_meridis_keys.py
+**create_meridis_keys.py**
+
 - `create_meridis_keys.py` は Redisサーバーに必要なキーを初期化するためのコマンドラインスクリプトです。
 - 起動時にRedisサーバーのIPアドレスを入力し、指定されたRedisキーをハッシュ形式で作成します。
 - Meridisシステムのセットアップ時に使用します。
 
-### 使い方
+### コマンド
 - すでにRedisサーバーが起動している必要があります。
 - 起動時にRedisサーバーのIPアドレスが聞かれるので、先ほどのRedis-cliで表示されたIPアドレスを入れてください（通常は`127.0.0.1`）。異なるサブネットのRedisサーバーにアクセスする場合、適切なIPアドレスを入力してください。
 - 入力されたIPアドレスでRedisサーバーに接続を試みます。
