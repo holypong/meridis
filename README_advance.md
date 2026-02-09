@@ -4,7 +4,28 @@
 システムを拡張したい、独自の設定で動かしたい方はこちらをご覧ください。  
 <BR>
 
-# 仕様
+## 目次
+
+- [仕様](#仕様)
+- [ロボット動作を管理する: meridis_manager.py](#ロボット動作を管理する-meridis_managerpy)
+  - [アーキテクチャ図](#アーキテクチャ図)
+  - [コマンド](#コマンド)
+  - [オプション](#オプション)
+  - [動作](#動作)
+  - [マネージャーオプション（--mgr）](#マネージャーオプションmgr)
+    - [Sim2Real: mgr_sim2real.json](#sim2real-mgr_sim2realjson)
+    - [Real2Sim: mgr_real2sim.json](#real2sim-mgr_real2simjson)
+    - [Real: mgr_mcp2real.json](#real-mgr_mcp2realjson)
+  - [ネットワークオプション（--network）](#ネットワークオプションnetwork)
+  - [フットオプション(--foot)](#フットオプションfoot)
+- [ライブラリの詳細](#ライブラリの詳細)
+  - [redisデータの送信: redis_transfer.py](#redisデータの送信-redis_transferpy)
+  - [redisデータの受信: redis_receiver.py](#redisデータの受信-redis_receiverpy)
+  - [redisデータのプロット: redis_plotter.py](#redisデータのプロット-redis_plotterpy)
+
+---
+
+## 仕様
 
 ## ロボット動作を管理する: meridis_manager.py
 

@@ -5,12 +5,7 @@
 
 ## 目次
 
-- [背景](#背景)
-- [目的](#目的)
-  - [研究開発](#研究開発)
-  - [エンジニアリング](#エンジニアリング)
 - [概要](#概要)
-- [主な機能](#主な機能)
 - [Redisのインストール](#redisのインストール)
   - [Windowsの場合](#windowsの場合)
   - [Linux-Ubuntuの場合](#linux-ubuntuの場合)
@@ -74,7 +69,7 @@ https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis
 brew install redis
 ```
 
-# Redisサーバーの動作確認する
+## Redisサーバーの動作確認する
 
 自身の環境で稼働させているRedisサーバーの状態に合わせて動作確認方法を選択してください。
 
@@ -242,5 +237,5 @@ PONG
 ## 📚 さらに詳しく知りたい方へ
 研究開発を進めるための仕様などの参考資料に続きます。  
 
-- **[背景・目的・用語集を読む](README_concept.md)** - なぜmerimujoco?どんな世界がひろがる?
+- **[背景・目的・用語集を読む](README_concept.md)** - なぜmeridis?どんな世界がひろがる?
 - **[技術仕様を読む](README_advance.md)** - コマンド・設定ファイル詳細・カスタマイズ方法
