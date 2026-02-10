@@ -7,21 +7,22 @@
 ## 目次
 
 - [仕様](#仕様)
-- [ロボット動作を管理する: meridis_manager.py](#ロボット動作を管理する-meridis_managerpy)
+- [ロボット動作を管理する](#ロボット動作を管理する)
   - [アーキテクチャ図](#アーキテクチャ図)
   - [コマンド](#コマンド)
   - [オプション](#オプション)
   - [動作](#動作)
-  - [マネージャーオプション（--mgr）](#マネージャーオプションmgr)
+  - [マネージャーオプション（--mgr）](#マネージャーオプション--mgr)
     - [mgr_sim2real.json](#mgr_sim2realjson)
     - [mgr_real2sim.json](#mgr_real2simjson)
     - [mgr_mcp2real.json](#mgr_mcp2realjson)
-  - [ネットワークオプション（--network）](#ネットワークオプションnetwork)
-  - [フットオプション(--foot)](#フットオプションfoot)
+  - [ネットワークオプション（--network）](#ネットワークオプション--network)
+  - [フットオプション(--foot)](#フットオプション--foot)
 - [ライブラリの詳細](#ライブラリの詳細)
   - [redisデータの送信](#redisデータの送信)
   - [redisデータの受信](#redisデータの受信)
   - [redisデータのプロット](#redisデータのプロット)
+
  
 ---
 
@@ -54,7 +55,7 @@ graph TD;
     end
     MCP[MCPサーバー] --> MM;
     SIM[シミュレータ] --> MM;
-    ROB[リアルロボット] --> MM;
+    ROB[ロボット実機] --> MM;
     MM --> SIM;
     MM --> ROB;
     MM --> MCP;
@@ -88,8 +89,8 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 
 Meridianを搭載したロボット実機がある場合、シミュレーションロボットのダンスの動きをロボット実機に同期させることができます。
 
-以下は `mgr_sim2real.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
-
+以下は `mgr_sim2real.json` の例<br>
+（実際のファイルはリポジトリ内のものを参照してください）：
 ```json
 {
   "redis": {
@@ -130,7 +131,7 @@ sequenceDiagram
     MMD->>ROB: UDP送信  // 実機へ演算結果を送信
 ```
 
-### mgr_real2sim.json
+#### mgr_real2sim.json
 
 Meridianを搭載したロボット実機がある場合、ロボット実機の関節の動きをシミュレーション上のロボットで再現できます。
 
@@ -175,7 +176,7 @@ sequenceDiagram
     SIM->>R: HSET meridis_sim_pub // シミュレータが演算結果を格納
 ```
 
-### mgr_mcp2real.json
+#### mgr_mcp2real.json
 
 Meridianを搭載したロボット実機がある場合、AIエージェントがMCPサーバー経由でロボット実機の動きを指令します。
 
@@ -228,6 +229,9 @@ sequenceDiagram
 - udp
   - PC側からみた送信側・受信側のIP・PORTを設定してください。
 
+- `network.json`の例<br>
+  - send: ロボット実機のIPアドレスとポート<br>
+  - recv: PCのIPアドレスとポート
 ```json
 {
   "udp": {
