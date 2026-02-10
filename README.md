@@ -14,7 +14,6 @@
   - [ローカルのRedisサーバーにアクセスする場合](#ローカルのredisサーバーにアクセスする場合)
   - [別サブネットのRedisサーバーにアクセスする場合](#別サブネットのredisサーバーにアクセスする場合)
 - [Redisキーを作成する](#redisキーを作成する)
-  - [create_meridis_keys.py](#create_meridis_keyspy)
   - [コマンド](#コマンド)
   - [動作](#動作)
 - [Redisキーを確認する](#redisキーを確認する)
@@ -73,7 +72,7 @@ brew install redis
 
 自身の環境で稼働させているRedisサーバーの状態に合わせて動作確認方法を選択してください。
 
-## ローカルのRedisサーバーにアクセスする場合
+### ローカルのRedisサーバーにアクセスする場合
 
 - 1つのPC・1つのOSで、Redisサーバーを稼働させているケースを想定
 
@@ -111,7 +110,7 @@ PONG
 - [Redisキーを作成する](#redisキーを作成する)に移動します。
 
 
-## 別サブネットのRedisサーバーにアクセスする場合
+### 別サブネットのRedisサーバーにアクセスする場合
 
 - 1つのPC・2つのOSで、Redisサーバーを稼働させているケースを想定
 （例えば、Windows 11 と WSL-Ubuntu を連携させるなど）　
@@ -185,7 +184,7 @@ sudo nano /etc/redis/redis.conf
 + protected-mode no
 ```
 
-## Redisキーを作成する：
+## Redisキーを作成する
 
 **create_meridis_keys.py**
 

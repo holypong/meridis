@@ -151,7 +151,7 @@ Redisのメッセージング機能。Publisher（発行者）がチャネルに
 **強化学習（Reinforcement Learning）**  
 AIが試行錯誤を通じて最適な行動を学習する手法。シミュレーションで大量の試行を繰り返し、実機に適用することが多い。MuJoCo、Genesis、Isaac Sim などのシミュレータと組み合わせて使用される。
 
-## シミュレータ関連用語
+### シミュレータ関連用語
 
 **MuJoCo（ムジョコ）**  
 Multi-Joint dynamics with Contact の略。ロボットや物体の物理的な動きを高精度にシミュレーションするためのエンジン。DeepMindがオープンソース化し、現在は無料で利用可能。merimujoco の物理エンジンとして使用。
