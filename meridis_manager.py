@@ -424,9 +424,6 @@ def meridian_loop():
     logger.info(f"Redis keys: Read from {mrd.redis_key_read}, Write to {mrd.redis_key_write}")
     logger.info(f"Target frame rate: {mrd.target_fps} Hz (frame time: {mrd.target_frame_time*1000:.2f} ms)")
     logger.info(f"Optimized to process only the latest UDP packet")
-
-    # 初期データ設定
-    _r_bin_data_past = np.zeros(MSG_BUFF, dtype=np.int8)
     
     # フレーム時間計測開始
     mrd.last_frame_time = time.time()
@@ -447,44 +444,40 @@ def meridian_loop():
             latest_data = receive_latest_udp_packet(sock)
             
             if latest_data is not None:
-                # 前回と同じデータでないことを確認
-                if not np.array_equal(_r_bin_data_past, latest_data):
-                    _r_bin_data_past = latest_data  # 今回のデータを保存
+                # 受信データを配列に変換
+                with mrd.lock:
+                    mrd.r_meridim = struct.unpack('90h', latest_data)
+                    mrd.r_meridim_ushort = struct.unpack('90H', latest_data)
+                    mrd.r_meridim_char = struct.unpack('180b', latest_data)
                     
-                    # 受信データを配列に変換
-                    with mrd.lock:
-                        mrd.r_meridim = struct.unpack('90h', latest_data)
-                        mrd.r_meridim_ushort = struct.unpack('90H', latest_data)
-                        mrd.r_meridim_char = struct.unpack('180b', latest_data)
-                        
-                        # フレーム同期確認とスキップカウント（ESP32→PCのシーケンス番号はIndex[1]）
-                        mrd.frame_sync_r_resv = mrd.r_meridim[1]
-                        # 初回パケット以外でチェック
-                        if mrd.frame_sync_r_last >= 0:
-                            diff = mrd.frame_sync_r_resv - mrd.frame_sync_r_last
-                            # ラップアラウンド処理（59999→0の場合、diff=-59999になる）
-                            if diff == -59999:
-                                diff = 1  # 59999→ 0は正常
-                            # 差が1でない場合は、飛んだパケット数だけエラーカウント
-                            if diff != 1:
-                                # 負の値の場合は異常（シーケンス番号が倒退）
-                                if diff < 0:
-                                    mrd.error_count_pc_skip += 1
-                                else:
-                                    # 差-1がスキップされたパケット数
-                                    mrd.error_count_pc_skip += (diff - 1)
-                        mrd.frame_sync_r_last = mrd.frame_sync_r_resv
-                    
-                    # チェックサムの確認
-                    received_checksum = mrd.r_meridim[MSG_CKSM]
-                    calculated_checksum = mrd.calculate_checksum(mrd.r_meridim)
-                    
-                    if received_checksum == calculated_checksum:
-                        # Redisへのデータ書き込み
-                        write_redis_data()
-                    else:
-                        logger.error(f"Checksum mismatch: received={received_checksum}, calculated={calculated_checksum}")
-                        mrd.error_count_esp_to_pc += 1
+                    # フレーム同期確認とスキップカウント（ESP32→PCのシーケンス番号はIndex[1]）
+                    mrd.frame_sync_r_resv = mrd.r_meridim[1]
+                    # 初回パケット以外でチェック
+                    if mrd.frame_sync_r_last >= 0:
+                        diff = mrd.frame_sync_r_resv - mrd.frame_sync_r_last
+                        # ラップアラウンド処理（59999→0の場合、diff=-59999になる）
+                        if diff == -59999:
+                            diff = 1  # 59999→ 0は正常
+                        # 差が1でない場合は、飛んだパケット数だけエラーカウント
+                        if diff != 1:
+                            # 負の値の場合は異常（シーケンス番号が倒退）
+                            if diff < 0:
+                                mrd.error_count_pc_skip += 1
+                            else:
+                                # 差-1がスキップされたパケット数
+                                mrd.error_count_pc_skip += (diff - 1)
+                    mrd.frame_sync_r_last = mrd.frame_sync_r_resv
+                
+                # チェックサムの確認
+                received_checksum = mrd.r_meridim[MSG_CKSM]
+                calculated_checksum = mrd.calculate_checksum(mrd.r_meridim)
+                
+                if received_checksum == calculated_checksum:
+                    # Redisへのデータ書き込み
+                    write_redis_data()
+                else:
+                    logger.error(f"Checksum mismatch: received={received_checksum}, calculated={calculated_checksum}")
+                    mrd.error_count_esp_to_pc += 1
             
             # ------------------------------------------------------------------------
             # [ 2 ] : Redisからデータ取得と送信データの準備
