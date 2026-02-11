@@ -16,9 +16,18 @@ import atexit   # クリーンアップ用
 import signal   # シグナルハンドリング用
 import json     # ネットワーク設定読み込み用
 import os       # ファイル存在確認用
+import logging  # ログ出力用
 import redis
 import redis_receiver
 import redis_transfer
+
+# ロギング設定（日付情報を圧縮形式で出力）
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%m%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # 20250429 meridis_manager.py 新規作成
 # 20250511 タイミング計測機能追加
@@ -73,7 +82,7 @@ class MeridianConsole:
         self.frame_sync_s = 0            # 送信するframe_sync_r(0-59999)
         self.frame_sync_r_expect = 0     # 毎フレームカウントし, 受信カウントと比較(0-59999)
         self.frame_sync_r_resv = 0       # 今回受信したframe_sync_r
-        self.frame_sync_r_last = 0       # 前回受信したframe_sync_r
+        self.frame_sync_r_last = -1      # 前回受信したframe_sync_r（-1は未受信）
         self.error_count_esp_to_pc = 0   # PCからESP32へのUDP送信でのエラー数
         self.error_count_pc_to_esp = 0   # ESP32からPCへのUDP送信でのエラー数
         self.error_count_pc_skip = 0     # PCが受信したデータがクロックカウントスキップしていたか
@@ -99,8 +108,8 @@ class MeridianConsole:
         # Redisクライアント関連
         self.receiver = redis_receiver.RedisReceiver(host=self.redis_host, port=REDIS_PORT, redis_key=self.redis_key_read)
         self.transfer = redis_transfer.RedisTransfer(host=self.redis_host, port=REDIS_PORT, redis_key=self.redis_key_write)
-        print(f"Receiver connected to Redis at {self.redis_host}:{REDIS_PORT} for key '{self.redis_key_read}'")
-        print(f"Transfer connected to Redis at {self.redis_host}:{REDIS_PORT} for key '{self.redis_key_write}'")
+        logger.info(f"Receiver connected to Redis at {self.redis_host}:{REDIS_PORT} for key '{self.redis_key_read}'")
+        logger.info(f"Transfer connected to Redis at {self.redis_host}:{REDIS_PORT} for key '{self.redis_key_write}'")
 
         # 実行時間計測用
         self.start_time = time.time()
@@ -118,7 +127,6 @@ class MeridianConsole:
             "min": 0.0,
             "max": 0.0,
             "avg": 0.0,
-            "over_budget_count": 0,
             "total_frames": 0
         }
 
@@ -183,9 +191,6 @@ class MeridianConsole:
         # 統計情報の更新
         self.timing_stats["total_frames"] += 1
         
-        if frame_time > self.target_frame_time:
-            self.timing_stats["over_budget_count"] += 1
-        
         # 最小値、最大値、平均値を計算
         if self.frame_times:
             self.timing_stats["min"] = min(self.frame_times)
@@ -196,6 +201,8 @@ class MeridianConsole:
 
 # メインクラスのインスタンス（後で初期化）
 mrd = None
+# cleanup()が既に実行されたかのフラグ
+_cleanup_done = False
 
 def print_timing_histogram(frame_times, target_time):
     """フレーム時間のヒストグラムを表示する"""
@@ -219,14 +226,14 @@ def print_timing_histogram(frame_times, target_time):
         histogram[bin_index] += 1
     
     # ヒストグラムの表示
-    print("\n----- Frame Time Histogram (ms) -----")
-    print(f"Target: {target_time*1000:.2f} ms")
+    logger.debug("\n----- Frame Time Histogram (ms) -----")
+    logger.debug(f"Target: {target_time*1000:.2f} ms")
     for i in range(bins):
         start = min_time * 1000 + i * bin_size
         end = start + bin_size
         bar = "#" * int(histogram[i] / len(frame_times) * 50)
-        print(f"{start:5.2f}-{end:5.2f}: {bar} {histogram[i]/len(frame_times)*100:.1f}%")
-    print("---------------------------------------\n")
+        logger.debug(f"{start:5.2f}-{end:5.2f}: {bar} {histogram[i]/len(frame_times)*100:.1f}%")
+    logger.debug("---------------------------------------\n")
 
 def fetch_redis_data():
     """Redisからデータを取得してMeridim配列に適用する"""
@@ -236,7 +243,7 @@ def fetch_redis_data():
         #print(f"[Debug] Redis get_data: {data}")
 
         if data is None or len(data) != MSG_SIZE:
-            print(f"[Redis Error] Invalid data format from Redis key {mrd.redis_key_read}")
+            logger.error(f"Invalid data format from Redis key {mrd.redis_key_read}")
             return False
         
         # サーボ位置データをMeridim配列に反映
@@ -256,25 +263,20 @@ def fetch_redis_data():
             #print(f"[Debug] Meridim data: {mrd.s_meridim}")
 
             # フレームカウントとチェックサムを更新
-            # 受信したシーケンス番号(Index[1])をインクリメントして送信パケットのIndex[1]にセット
-            # int16を適切にuint16に変換（負の値の場合は65536を加算）
-            recv_int16 = mrd.r_meridim[1]
-
-            # meridian_console.pyに合わせたシーケンスID処理
-            # 受信したシーケンス番号から送信用シーケンス番号を生成
+            # PC→ESP32のシーケンス番号をIndex[0]にセット
             mrd.frame_sync_s += 1  # 送信用のframe_sync_sをカウントアップ
             if mrd.frame_sync_s > 59999:  # 60,000以上ならゼロリセット
                 mrd.frame_sync_s = 0
             if mrd.frame_sync_s > 32767:  # unsigned short として取り出せるようなsigned shortに変換
-                mrd.s_meridim[1] = mrd.frame_sync_s - 65536
+                mrd.s_meridim[0] = mrd.frame_sync_s - 65536
             else:
-                mrd.s_meridim[1] = mrd.frame_sync_s
+                mrd.s_meridim[0] = mrd.frame_sync_s
             mrd.s_meridim[MSG_CKSM] = mrd.calculate_checksum(mrd.s_meridim)
             
         return True
         
     except Exception as e:
-        print(f"[Redis Error] Unexpected error in fetch_redis_data: {str(e)}")
+        logger.error(f"Unexpected error in fetch_redis_data: {str(e)}")
         return False
 
 def write_redis_data():
@@ -329,7 +331,7 @@ def write_redis_data():
 
             head_deg = data[21]  # 左右首振り
 
-            print(f"[Debug] seq: {seqid} /imuRPY: {data[12]}, {data[13]}, {data[14]} /cmd_vel: {lx}, {ly}, {rx}, {ry} /cmd_btn: {cmd_btn} / head: {head_deg}")
+            logger.debug(f"seq: {seqid} /imuRPY: {data[12]}, {data[13]}, {data[14]} /cmd_vel: {lx}, {ly}, {rx}, {ry} /cmd_btn: {cmd_btn} / head: {head_deg}")
 
             data[16] = lx
             data[17] = ly
@@ -344,7 +346,7 @@ def write_redis_data():
         return True
         
     except Exception as e:
-        print(f"[Redis Error] Failed to write to Redis: {str(e)}")
+        logger.error(f"Failed to write to Redis: {str(e)}")
         return False
 
 def send_udp_data(sock):
@@ -362,7 +364,7 @@ def send_udp_data(sock):
             sock.sendto(s_bin_data, (mrd.target_ip, UDP_SEND_PORT))
         return True
     except Exception as e:
-        print(f"[UDP Error] Failed to send data: {str(e)}")
+        logger.error(f"Failed to send UDP data: {str(e)}")
         mrd.error_count_pc_to_esp += 1
         return False
 
@@ -384,7 +386,7 @@ def receive_latest_udp_packet(sock):
                 # バッファが空になったらループ終了
                 break
             except Exception as e:
-                print(f"[Error] In packet receive loop: {str(e)}")
+                logger.error(f"In packet receive loop: {str(e)}")
                 break
         
         # パケット統計情報の更新
@@ -399,7 +401,7 @@ def receive_latest_udp_packet(sock):
         return latest_data
     
     except Exception as e:
-        print(f"[Error] Error receiving UDP data: {str(e)}")
+        logger.error(f"Error receiving UDP data: {str(e)}")
         return None
 
 def meridian_loop():
@@ -417,11 +419,11 @@ def meridian_loop():
     
     atexit.register(cleanup)  # クリーンアップ関数の登録
     
-    print(f"Meridis Manager started. Listening on {mrd.recv_ip}:{UDP_RECV_PORT}")
-    print(f"Sending to {mrd.target_ip}:{UDP_SEND_PORT}")
-    print(f"Redis keys: Read from {mrd.redis_key_read}, Write to {mrd.redis_key_write}")
-    print(f"Target frame rate: {mrd.target_fps} Hz (frame time: {mrd.target_frame_time*1000:.2f} ms)")
-    print(f"Optimized to process only the latest UDP packet")
+    logger.info(f"Meridis Manager started. Listening on {mrd.recv_ip}:{UDP_RECV_PORT}")
+    logger.info(f"Sending to {mrd.target_ip}:{UDP_SEND_PORT}")
+    logger.info(f"Redis keys: Read from {mrd.redis_key_read}, Write to {mrd.redis_key_write}")
+    logger.info(f"Target frame rate: {mrd.target_fps} Hz (frame time: {mrd.target_frame_time*1000:.2f} ms)")
+    logger.info(f"Optimized to process only the latest UDP packet")
 
     # 初期データ設定
     _r_bin_data_past = np.zeros(MSG_BUFF, dtype=np.int8)
@@ -435,7 +437,7 @@ def meridian_loop():
             
             # デバッグメッセージは100フレームごとに出力
             if mrd.loop_count % 100 == 0:
-                print(f"[Loop] Frame: {mrd.loop_count}")
+                logger.debug(f"Frame: {mrd.loop_count}")
             
             mrd.loop_count += 1  # フレーム数カウントアップ
 
@@ -455,10 +457,22 @@ def meridian_loop():
                         mrd.r_meridim_ushort = struct.unpack('90H', latest_data)
                         mrd.r_meridim_char = struct.unpack('180b', latest_data)
                         
-                        # フレーム同期確認とスキップカウント
-                        mrd.frame_sync_r_resv = mrd.r_meridim[0]
-                        if (mrd.frame_sync_r_resv - mrd.frame_sync_r_last) != 1 and (mrd.frame_sync_r_resv - mrd.frame_sync_r_last) != -59999:
-                            mrd.error_count_pc_skip += 1
+                        # フレーム同期確認とスキップカウント（ESP32→PCのシーケンス番号はIndex[1]）
+                        mrd.frame_sync_r_resv = mrd.r_meridim[1]
+                        # 初回パケット以外でチェック
+                        if mrd.frame_sync_r_last >= 0:
+                            diff = mrd.frame_sync_r_resv - mrd.frame_sync_r_last
+                            # ラップアラウンド処理（59999→0の場合、diff=-59999になる）
+                            if diff == -59999:
+                                diff = 1  # 59999→ 0は正常
+                            # 差が1でない場合は、飛んだパケット数だけエラーカウント
+                            if diff != 1:
+                                # 負の値の場合は異常（シーケンス番号が倒退）
+                                if diff < 0:
+                                    mrd.error_count_pc_skip += 1
+                                else:
+                                    # 差-1がスキップされたパケット数
+                                    mrd.error_count_pc_skip += (diff - 1)
                         mrd.frame_sync_r_last = mrd.frame_sync_r_resv
                     
                     # チェックサムの確認
@@ -469,7 +483,7 @@ def meridian_loop():
                         # Redisへのデータ書き込み
                         write_redis_data()
                     else:
-                        print(f"[Error] Checksum mismatch: received={received_checksum}, calculated={calculated_checksum}")
+                        logger.error(f"Checksum mismatch: received={received_checksum}, calculated={calculated_checksum}")
                         mrd.error_count_esp_to_pc += 1
             
             # ------------------------------------------------------------------------
@@ -491,24 +505,33 @@ def meridian_loop():
             if mrd.loop_count % 100 == 0:
                 now = time.time() - mrd.start_time
                 fps = mrd.loop_count / now
-                over_budget_percent = (mrd.timing_stats["over_budget_count"] / mrd.timing_stats["total_frames"]) * 100 if mrd.timing_stats["total_frames"] > 0 else 0
                 skip_ratio = (mrd.skipped_packets_total / mrd.received_packets_total) * 100 if mrd.received_packets_total > 0 else 0
                 
-                print(f"[Stats] Frame: {mrd.loop_count}, Actual FPS: {fps:.2f}, "
+                # 各パラメータの説明
+                # Frame: フレーム数
+                # Actual FPS: 実際のフレームレート
+                # Frame times (ms): フレーム時間の最小、平均、最大値（ミリ秒）
+                logger.info(f"[Stats] Frame: {mrd.loop_count}, Actual FPS: {fps:.2f}, "
                       f"Frame times (ms) - Min: {mrd.timing_stats['min']*1000:.2f}, "
                       f"Avg: {mrd.timing_stats['avg']*1000:.2f}, "
-                      f"Max: {mrd.timing_stats['max']*1000:.2f}, "
-                      f"Over budget: {over_budget_percent:.2f}%")
-                
-                print(f"[Errors] PC-ESP: {mrd.error_count_pc_to_esp}, "
-                      f"ESP-PC: {mrd.error_count_esp_to_pc}, "
-                      f"Skips: {mrd.error_count_pc_skip}")
-                
-                print(f"[Packets] Received: {mrd.received_packets_total}, "
+                      f"Max: {mrd.timing_stats['max']*1000:.2f}")
+                                
+                # 各パラメータの説明
+                # Received: 受信したパケットの総数
+                # Processed: 処理したパケットの総数
+                # Skipped: スキップしたパケットの総数と割合
+                logger.info(f"[Packets] Received: {mrd.received_packets_total}, "
                       f"Processed: {mrd.processed_packets_total}, "
-                      f"Skipped: {mrd.skipped_packets_total} ({skip_ratio:.2f}%), "
-                      f"Last queue size: {mrd.packets_in_queue}")
-            
+                      f"Skipped: {mrd.skipped_packets_total} ({skip_ratio:.2f}%)")
+
+                # 各パラメータの説明
+                # PC-ESP: PCからESPへのエラー数
+                # ESP-PC: ESPからPCへのエラー数
+                # Frame sync errors: フレーム同期エラー数
+                logger.debug(f"[Errors] PC-ESP: {mrd.error_count_pc_to_esp}, "
+                      f"ESP-PC: {mrd.error_count_esp_to_pc}, "
+                      f"Frame sync errors: {mrd.error_count_pc_skip}")
+
             # 10000フレームごとにヒストグラムを表示
             if mrd.loop_count % 10000 == 0:
                 print_timing_histogram(mrd.frame_times, mrd.target_frame_time)
@@ -518,12 +541,18 @@ def meridian_loop():
             if elapsed < mrd.target_frame_time:
                 time.sleep(mrd.target_frame_time - elapsed)
             elif mrd.loop_count % 1000 == 0:  # 1000フレームに1回、遅延警告を表示
-                print(f"[Warning] Frame {mrd.loop_count} is behind schedule by {(elapsed - mrd.target_frame_time)*1000:.2f} ms")
+                logger.warning(f"Frame {mrd.loop_count} is behind schedule by {(elapsed - mrd.target_frame_time)*1000:.2f} ms")
 
 def cleanup():
     """終了時の後片付け"""
-    global mrd
-    print("Meridis Manager shutting down...")
+    global mrd, _cleanup_done
+    
+    # 既に実行済みの場合はスキップ
+    if _cleanup_done:
+        return
+    _cleanup_done = True
+    
+    logger.info("Meridis Manager shutting down...")
     try:
         if mrd:
             mrd.running = False  # メインループを停止
@@ -532,7 +561,7 @@ def cleanup():
             mrd.transfer.close()
     except:
         pass
-    print("Meridis Manager resources released.")
+    logger.info("Meridis Manager resources released.")
 
 def load_manager_config(json_file):
     """マネージャー設定（Redisキーとデータフロー）をJSONファイルから読み込む"""
@@ -540,7 +569,7 @@ def load_manager_config(json_file):
     
     try:
         if not os.path.exists(json_file):
-            print(f"[Warning] Manager config file '{json_file}' not found. Using default values.")
+            logger.warning(f"Manager config file '{json_file}' not found. Using default values.")
             return False
         
         with open(json_file, 'r', encoding='utf-8') as f:
@@ -567,17 +596,17 @@ def load_manager_config(json_file):
             if 'udp_to_redis' in config['data_flow']:
                 FLG_UDPRCV_REDISWRITE = config['data_flow']['udp_to_redis']
         
-        print(f"[Config] Loaded manager configuration from '{json_file}'")
-        print(f"[Config] Redis Host: {REDIS_HOST}:{REDIS_PORT}")
-        print(f"[Config] Redis Keys: Read='{REDIS_KEY_READ}', Write='{REDIS_KEY_WRITE}'")
-        print(f"[Config] Data Flow: Redis→UDP={FLG_REDISREAD_UDPSND}, UDP→Redis={FLG_UDPRCV_REDISWRITE}")
+        logger.info(f"Loaded manager configuration from '{json_file}'")
+        logger.info(f"Redis Host: {REDIS_HOST}:{REDIS_PORT}")
+        logger.info(f"Redis Keys: Read='{REDIS_KEY_READ}', Write='{REDIS_KEY_WRITE}'")
+        logger.info(f"Data Flow: Redis→UDP={FLG_REDISREAD_UDPSND}, UDP→Redis={FLG_UDPRCV_REDISWRITE}")
         return True
         
     except json.JSONDecodeError as e:
-        print(f"[Error] Failed to parse JSON file '{json_file}': {e}")
+        logger.error(f"Failed to parse JSON file '{json_file}': {e}")
         return False
     except Exception as e:
-        print(f"[Error] Failed to load manager config from '{json_file}': {e}")
+        logger.error(f"Failed to load manager config from '{json_file}': {e}")
         return False
 
 def load_network_config(json_file):
@@ -586,7 +615,7 @@ def load_network_config(json_file):
     
     try:
         if not os.path.exists(json_file):
-            print(f"[Warning] Network config file '{json_file}' not found. Using default values.")
+            logger.warning(f"Network config file '{json_file}' not found. Using default values.")
             return False
         
         with open(json_file, 'r', encoding='utf-8') as f:
@@ -612,17 +641,17 @@ def load_network_config(json_file):
                 if 'port' in config['udp']['recv']:
                     UDP_RECV_PORT = config['udp']['recv']['port']
         
-        print(f"[Config] Loaded network configuration from '{json_file}'")
-        print(f"[Config] Redis: {REDIS_HOST}:{REDIS_PORT}")
-        print(f"[Config] UDP Send: {UDP_SEND_IP}:{UDP_SEND_PORT}")
-        print(f"[Config] UDP Recv: {UDP_RECV_IP}:{UDP_RECV_PORT}")
+        logger.info(f"Loaded network configuration from '{json_file}'")
+        logger.info(f"Redis: {REDIS_HOST}:{REDIS_PORT}")
+        logger.info(f"UDP Send: {UDP_SEND_IP}:{UDP_SEND_PORT}")
+        logger.info(f"UDP Recv: {UDP_RECV_IP}:{UDP_RECV_PORT}")
         return True
         
     except json.JSONDecodeError as e:
-        print(f"[Error] Failed to parse JSON file '{json_file}': {e}")
+        logger.error(f"Failed to parse JSON file '{json_file}': {e}")
         return False
     except Exception as e:
-        print(f"[Error] Failed to load network config from '{json_file}': {e}")
+        logger.error(f"Failed to load network config from '{json_file}': {e}")
         return False
 
 def parse_arguments():
@@ -646,11 +675,11 @@ def main():
     """メインスレッド - シグナルハンドリングとキープアライブ"""
     global mrd
     
-    print(f"Meridis Manager started. This PC's IP address is {mrd.get_local_ip()}")
+    logger.info(f"Meridis Manager started. This PC's IP address is {mrd.get_local_ip()}")
     
     # シグナルハンドラの設定
     def signal_handler(sig, frame):
-        print("Signal received, cleaning up...")
+        logger.info("Signal received, cleaning up...")
         cleanup()
         sys.exit(0)
     
@@ -659,27 +688,34 @@ def main():
     try:
         # 定期的なステータス表示
         while mrd.running:
-            time.sleep(5)  # CPUリソースを節約
+            time.sleep(1)  # CPUリソースを節約
             
             # 実行フラグが False になったらループを抜ける
             if not mrd.running:
                 break
                 
             # タイミング情報の概要を表示
-            over_budget_percent = (mrd.timing_stats["over_budget_count"] / mrd.timing_stats["total_frames"]) * 100 if mrd.timing_stats["total_frames"] > 0 else 0
             now = time.time() - mrd.start_time
             avg_fps = mrd.loop_count / now if now > 0 else 0
             skip_ratio = (mrd.skipped_packets_total / mrd.received_packets_total) * 100 if mrd.received_packets_total > 0 else 0
             
-            print(f"[Status] Manager running for {now:.1f} seconds. Frames: {mrd.loop_count}, Avg FPS: {avg_fps:.2f}")
-            print(f"[Timing] Target: {mrd.target_fps} Hz ({mrd.target_frame_time*1000:.2f} ms/frame)")
-            print(f"[Timing] Actual: Min={mrd.timing_stats['min']*1000:.2f}ms, Avg={mrd.timing_stats['avg']*1000:.2f}ms, Max={mrd.timing_stats['max']*1000:.2f}ms")
-            print(f"[Timing] Frames exceeding budget: {over_budget_percent:.2f}% ({mrd.timing_stats['over_budget_count']} of {mrd.timing_stats['total_frames']})")
-            print(f"[Packets] Received: {mrd.received_packets_total}, Processed: {mrd.processed_packets_total}")
-            print(f"[Packets] Skipped: {mrd.skipped_packets_total} ({skip_ratio:.2f}%)")
+            # 各パラメータの説明
+            # Manager running for: 実行時間
+            # Frames: 処理したフレーム数
+            # Avg FPS: 平均フレームレート
+            # Target: 目標フレームレートとフレーム時間
+            # Actual: フレーム時間の最小、平均、最大値
+            # Received: 受信したパケットの総数
+            # Processed: 処理したパケットの総数
+            # Skipped: スキップしたパケットの総数と割合
+            logger.debug(f"[Status] Manager running for {now:.1f} seconds. Frames: {mrd.loop_count}, Avg FPS: {avg_fps:.2f}")
+            logger.debug(f"[Timing] Target: {mrd.target_fps} Hz ({mrd.target_frame_time*1000:.2f} ms/frame)")
+            logger.debug(f"[Timing] Actual: Min={mrd.timing_stats['min']*1000:.2f}ms, Avg={mrd.timing_stats['avg']*1000:.2f}ms, Max={mrd.timing_stats['max']*1000:.2f}ms")
+            logger.debug(f"[Packets] Received: {mrd.received_packets_total}, Processed: {mrd.processed_packets_total}")
+            logger.debug(f"[Packets] Skipped: {mrd.skipped_packets_total} ({skip_ratio:.2f}%)")
             
     except KeyboardInterrupt:
-        print("Keyboard interrupt detected, cleaning up...")
+        logger.info("Keyboard interrupt detected, cleaning up...")
         cleanup()
         sys.exit(0)
 
@@ -699,14 +735,14 @@ if __name__ == '__main__':
         # マネージャー設定の読み込み
         if not load_manager_config(args.mgr):
             # JSONファイルが読めない場合は致命的とみなし終了する
-            print(f"[Error] Failed to load manager configuration '{args.mgr}'. Exiting.")
+            logger.error(f"Failed to load manager configuration '{args.mgr}'. Exiting.")
             sys.exit(1)
         
         # MeridianConsoleインスタンスをグローバルに初期化（RedisのIPアドレス、送信IP、受信IP、foot scalingを指定）
         foot_scaling_enabled = args.foot == 'on'
         mrd = MeridianConsole(redis_host=REDIS_HOST, target_ip=UDP_SEND_IP, recv_ip=UDP_RECV_IP, foot_scaling=foot_scaling_enabled)
         
-        print(f"[Foot scaling] {args.foot} - Special ranges 1/100 scaling: {foot_scaling_enabled}")
+        logger.info(f"[Foot scaling] {args.foot} - Special ranges 1/100 scaling: {foot_scaling_enabled}")
         
         # サブスレッドでUDP通信処理を実行（daemon=Falseに変更）
         udp_thread = threading.Thread(target=meridian_loop)
@@ -718,16 +754,16 @@ if __name__ == '__main__':
         
         # メインループ終了後、UDPスレッドの終了を待機
         if udp_thread and udp_thread.is_alive():
-            print("Waiting for UDP thread to finish...")
+            logger.info("Waiting for UDP thread to finish...")
             udp_thread.join(timeout=2.0)  # 2秒でタイムアウト
             
     except KeyboardInterrupt:
-        print("Main thread interrupted, cleaning up...")
+        logger.info("Main thread interrupted, cleaning up...")
         cleanup()
     except Exception as e:
-        print(f"Unexpected error in main: {e}")
+        logger.error(f"Unexpected error in main: {e}")
         cleanup()
     finally:
         if udp_thread and udp_thread.is_alive():
-            print("Force stopping UDP thread...")
-        print("Program terminated.")
+            logger.info("Force stopping UDP thread...")
+        logger.info("Program terminated.")
