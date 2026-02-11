@@ -283,42 +283,26 @@ def write_redis_data():
     """Meridim配列のデータをRedisに書き込む"""
     try:
         with mrd.lock:                  
-            #print(f"[Debug] received Meridim: {mrd.r_meridim}")
+            # 受信データをNumPyで一括float変換（高速化）
+            data = np.array(mrd.r_meridim, dtype=np.float64)
 
-            # 受信データをfloatに変換してRedisに書き込む。
-            data = [float(val) for val in mrd.r_meridim]
-
-            # IMU:acc, gyro 1/100変換
-            for i in range(2, 11):
-                data[i] = float(data[i] /100)
+            # 詳細はMeridin90プロトコル仕様書を参照
+            # IMU:acc, gyro 1/100変換（スライスで一括処理）
+            data[2:11] /= 100.0
 
             # IMU:roll, pitch, yaw 1/100変換
-            for i in range(12, 15):
-                data[i] = float(data[i] /100)
+            data[12:15] /= 100.0
             
             # --footオプションによる処理の分岐
             if mrd.foot_scaling:
                 # --foot on の場合：指定されたrangeのみ1/100する
-                for i in range(21, 47, 2):
-                    data[i] = float(data[i] / 100)
-                for i in range(46, 50):
-                    data[i] = float(data[i] / 100)
-                for i in range(51, 77, 2):
-                    data[i] = float(data[i] / 100)
-                for i in range(76, 80):
-                    data[i] = float(data[i] / 100)
+                data[21:47:2] /= 100.0
+                data[46:50] /= 100.0
+                data[51:77:2] /= 100.0
+                data[76:80] /= 100.0
             else:
                 # --foot off の場合：従来通りの処理
-                for i in range(21, 81, 2):
-                    data[i] = float(data[i] /100)
-
-            # for debug imu onvert r_meridim to redis
-            #print(f"[Debug] Mrd RPY : {mrd.r_meridim[12], mrd.r_meridim[13], mrd.r_meridim[14]}")
-            #print(f"[Debug] Rds RPY : {data[12], data[13], data[14]}")
-
-            # for debug remo btn+Lxy convert r_meridim to redis
-            #print(f"[Debug] Mrd btn+Lxy: {mrd.r_meridim[15]}, {mrd.r_meridim_char[33]}, {mrd.r_meridim_char[32]})")
-            #print(f"[Debug] Rds btn+Lxy : {data[15]}, {data[16]}")
+                data[21:81:2] /= 100.0
 
             # Remo
             CMD_VEL_GAIN = 1.0
@@ -331,7 +315,8 @@ def write_redis_data():
 
             head_deg = data[21]  # 左右首振り
 
-            logger.debug(f"seq: {seqid} /imuRPY: {data[12]}, {data[13]}, {data[14]} /cmd_vel: {lx}, {ly}, {rx}, {ry} /cmd_btn: {cmd_btn} / head: {head_deg}")
+            # パフォーマンス最適化のためコメントアウト（必要時に復活可能）
+            # logger.debug(f"seq: {seqid} /imuRPY: {data[12]}, {data[13]}, {data[14]} /cmd_vel: {lx}, {ly}, {rx}, {ry} /cmd_btn: {cmd_btn} / head: {head_deg}")
 
             data[16] = lx
             data[17] = ly
@@ -339,9 +324,7 @@ def write_redis_data():
 
         # redis_transfer.pyを使用してデータを書き込む
         if FLG_UDPRCV_REDISWRITE == True:        # UDP受信データをRedisに書き込むフラグ
-            mrd.transfer.set_data(mrd.redis_key_write, data)
-            #print(f"[Debug] Redis set_data: {data}")
-
+            mrd.transfer.set_data(mrd.redis_key_write, data.tolist())
 
         return True
         
