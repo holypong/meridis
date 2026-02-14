@@ -257,7 +257,11 @@ def fetch_redis_data():
                 mrd.s_meridim[i] = np.int16(data[i] * 100)
 
             # サーボの動作状態を指定する
-            if mrd.flag_servo_power > 0:
+            if FLG_REDISREAD_UDPSND:
+                # Redis→UDP送信モードの場合は強制的にサーボON +Hori 20260214
+                for i in range(20, 80, 2):
+                    mrd.s_meridim[i] = 1
+            elif mrd.flag_servo_power > 0:
                 for i in range(20, 80, 2):
                     mrd.s_meridim[i] = 1
             else:
