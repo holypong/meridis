@@ -30,8 +30,7 @@
 **対応シミュレータ:**
 - ✅ **merimujoco**（MuJoCo ベース）- [リポジトリ](https://github.com/holypong/merimujoco)
 
-[![merimujoco](image/merimujoco.png)](https://www.youtube.com/watch?v=PYukdFwX8sE)
-<br>上の画像クリックでYoutube動画を再生します
+![merimujoco](image/merimujoco.png)
 
 - ✅ **Genesis AI**
 
