@@ -25,10 +25,13 @@
 
 本リポジトリの**meridis**は、高速なインメモリデータベース **Redis** を共通インターフェースとして、ロボットシミュレーション、実機ロボット、AIエージェントなどの外部システムをシームレスに接続するためのブリッジツール群です。
 
+
+
 **対応シミュレータ:**
 - ✅ **merimujoco**（MuJoCo ベース）- [リポジトリ](https://github.com/holypong/merimujoco)
 
-![merimujoco](image/merimujoco.png)
+[![merimujoco](image/merimujoco.png)](https://www.youtube.com/watch?v=PYukdFwX8sE)
+<br>上の画像クリックでYoutube動画を再生します
 
 - ✅ **Genesis AI**
 
