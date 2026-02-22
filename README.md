@@ -243,3 +243,7 @@ PONG
 
 - **[背景・目的・用語集を読む](README_concept.md)** - なぜmeridis?どんな世界がひろがる?
 - **[技術仕様を読む](README_advance.md)** - コマンド・設定ファイル詳細・カスタマイズ方法
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
