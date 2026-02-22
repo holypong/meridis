@@ -90,11 +90,11 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 
 | キー | Write | Read | 役割 |
 |------------|----------------|----------------|---------|
-| `meridis_sim_pub` | シミュレータ | meridis_manager（実機） | シミュレータ主導での制御 |
+| `meridis_sim_pub` | シミュレータ | 実機 / MCP | シミュレータ主導での制御 |
 | `meridis_calc_pub` | 動作生成プログラム | シミュレータ / 実機 | 数値制御 |
-| `meridis_console_pub` | Meridian_console | meridis_manager | コンソールUIからの操作 |
-| `meridis_mgr_pub` | meridis_manager | 実機 / シミュレータ /MCP | 実機主導の制御 |
-| `meridis_mcp_pub` | AIエージェント / MCP | meridis_manager（実機 / シミュレータ） | AI主導の制御 |
+| `meridis_console_pub` | Meridian_console | シミュレータ / 実機 | コンソールUIからの操作 |
+| `meridis_mgr_pub` | meridis_manager | シミュレータ / 実機 / MCP | 実機主導の制御 |
+| `meridis_mcp_pub` | AIエージェント+MCP | シミュレータ / 実機 | AI主導の制御 |
 
 
 #### mgr_sim2real.json
