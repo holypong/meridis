@@ -85,6 +85,18 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 
 ### マネージャーオプション（--mgr）
 
+#### キーの役割
+`--mgr`オプションでは以下のキーを扱います。すべてHASH型です。
+
+| キー | Write | Read | 役割 |
+|------------|----------------|----------------|---------|
+| `meridis_sim_pub` | シミュレータ | meridis_manager（実機） | シミュレータ主導での制御 |
+| `meridis_calc_pub` | 動作生成プログラム | シミュレータ / 実機 | 数値制御 |
+| `meridis_console_pub` | Meridian_console | meridis_manager | コンソールUIからの操作 |
+| `meridis_mgr_pub` | meridis_manager | 実機 / シミュレータ /MCP | 実機主導の制御 |
+| `meridis_mcp_pub` | AIエージェント / MCP | meridis_manager（実機 / シミュレータ） | AI主導の制御 |
+
+
 #### mgr_sim2real.json
 
 Meridianを搭載したロボット実機がある場合、シミュレーションロボットのダンスの動きをロボット実機に同期させることができます。
