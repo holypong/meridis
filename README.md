@@ -5,18 +5,23 @@
 
 ## 目次
 
-- [概要](#概要)
-- [Redisのインストール](#redisのインストール)
-  - [Windowsの場合](#windowsの場合)
-  - [Linux-Ubuntuの場合](#linux-ubuntuの場合)
-  - [MacOS版の場合](#macos版の場合)
-- [Redisサーバーの動作確認する](#redisサーバーの動作確認する)
-  - [ローカルのRedisサーバーにアクセスする場合](#ローカルのredisサーバーにアクセスする場合)
-  - [別サブネットのRedisサーバーにアクセスする場合](#別サブネットのredisサーバーにアクセスする場合)
-- [Redisキーを作成する](#redisキーを作成する)
-  - [コマンド](#コマンド)
-  - [動作](#動作)
-- [Redisキーを確認する](#redisキーを確認する)
+- [meridis](#meridis)
+  - [目次](#目次)
+  - [概要](#概要)
+  - [Redis のインストール](#redis-のインストール)
+    - [Windowsの場合](#windowsの場合)
+    - [Linux-Ubuntuの場合](#linux-ubuntuの場合)
+    - [MacOS版の場合](#macos版の場合)
+  - [Redisサーバーの動作確認する](#redisサーバーの動作確認する)
+    - [ローカルのRedisサーバーにアクセスする場合](#ローカルのredisサーバーにアクセスする場合)
+    - [別サブネットのRedisサーバーにアクセスする場合](#別サブネットのredisサーバーにアクセスする場合)
+  - [Redisキーを作成する](#redisキーを作成する)
+    - [コマンド](#コマンド)
+    - [動作](#動作)
+  - [Redisキーを確認する](#redisキーを確認する)
+  - [](#)
+  - [📚 さらに詳しく知りたい方へ](#-さらに詳しく知りたい方へ)
+  - [License](#license)
 
 
 ---
@@ -53,6 +58,9 @@
 https://github.com/MicrosoftArchive/redis/releases
 1. ダウンロードした「Redis-x64***.msi」をダブルクリックしてredisをインストールする。
 
+インストール後、Redisのコマンド（redis-server, redis-cliなど）がコマンドプロンプトから実行できることを確認してください。もし実行できない場合は、環境変数PATHにRedisのインストールディレクトリ（通常 C:\Program Files\Redis\）を追加してください。
+
+
 ### Linux-Ubuntuの場合
 1. 下記サイトを確認する
 https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-20-04-ja
@@ -78,14 +86,20 @@ brew install redis
 
 - 1つのPC・1つのOSで、Redisサーバーを稼働させているケースを想定
 
+1. Redis-Serverがすでに起動しているかを確認
+```bash
+redis-cli ping
+```
+- "PONG"が返ればすでに起動中です。その場合は起動をスキップしてください。
+- 接続できない場合は、Redis-Serverが起動していないので、次のステップで起動してください。
 
-1. Redis-Serverを起動
+2. Redis-Serverを起動
 ```bash
 redis-server
 ```
 ![Redis Server](image/redis-server.png)
 
-2. Redis-Cliを起動
+3. Redis-Cliを起動
 別ターミナルを開く
 ```bash
 redis-cli
