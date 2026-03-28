@@ -7,7 +7,6 @@ from collections import deque
 import json
 import os
 import sys
-from pathlib import Path
 import time
 from matplotlib.widgets import Button
 
@@ -17,25 +16,38 @@ from matplotlib.widgets import Button
 REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
 
-def load_network_config(filename: str = "network.json"):
-    """Load Redis host/port from network.json located next to this script.
-    Returns (host, port) and falls back to defaults on any error.
+def load_redis_config(json_file: str = "redis.json"):
+    """merimujoco.py と同じ形式の redis*.json から Redis 接続設定を読み込む。
+    Returns (host, port, redis_key_read)。ファイルが存在しない場合はデフォルト値を返す。
     """
-    base = Path(__file__).parent
-    path = base / filename
-    if not path.exists():
-        print(f"Error: required network config not found: {path}", file=sys.stderr)
-        sys.exit(1)
-    with path.open("r", encoding="utf-8") as f:
-        cfg = json.load(f)
-    redis_cfg = cfg.get("redis", {})
-    host = redis_cfg.get("host", REDIS_HOST)
-    port = redis_cfg.get("port", REDIS_PORT)
-    return host, int(port)
+    host = REDIS_HOST
+    port = REDIS_PORT
+    redis_key = "meridis"
 
+    if not os.path.exists(json_file):
+        print(f"Warning: Redis config file '{json_file}' not found. Using defaults.", file=sys.stderr)
+        return host, port, redis_key
 
-# Load effective Redis settings
-REDIS_HOST, REDIS_PORT = load_network_config()
+    try:
+        with open(json_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        if 'redis' in config:
+            host = config['redis'].get('host', host)
+            port = int(config['redis'].get('port', port))
+
+        if 'redis_keys' in config:
+            redis_key = config['redis_keys'].get('read', redis_key)
+
+        print(f"Loaded Redis config from '{json_file}'")
+        print(f"  Redis: {host}:{port}, Key(read): {redis_key}")
+
+    except json.JSONDecodeError as e:
+        print(f"Error: Failed to parse '{json_file}': {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error: Failed to load '{json_file}': {e}", file=sys.stderr)
+
+    return host, port, redis_key
 
 def get_local_ip():
     """自身のIPアドレスを取得する"""
@@ -54,6 +66,15 @@ class RedisPlotter:
         self.receiver = receiver
         self.enable_log = enable_log
         self.display_mode = display_mode
+        self.ani = None
+        self.base_fig_size = (fig_width, fig_height)
+        self.base_font_sizes = {
+            'title': 12,
+            'label': 10,
+            'tick': 9,
+            'legend': 8,
+            'button': 9,
+        }
         
         # Joint mapping dictionary moved from redis_receiver.py
         self.joint_to_meridis = {
@@ -111,6 +132,10 @@ class RedisPlotter:
         
         # ボタンの設定
         self._setup_control_buttons()
+
+        # ウィンドウサイズに応じたフォント自動調整
+        self._connect_resize_handler()
+        self._apply_responsive_fonts()
 
     def _setup_joint_display(self):
         """Setup display for joint mode (original behavior)"""
@@ -178,6 +203,9 @@ class RedisPlotter:
                          list(self.left_lines.values()) + 
                          list(self.right_lines.values()))
 
+        # X軸タイトルを右端に配置
+        self._align_xlabels_to_right()
+
     def _setup_foot_display(self):
         """Setup display for foot mode"""
         # タイトルをウィンドウタイトルバーに表示
@@ -208,9 +236,9 @@ class RedisPlotter:
         self.right_lines = {}
         self.axes[1].set_title('Right Foot Position')
         self.axes[1].set_xlabel('Time (s)')
-        self.axes[1].set_ylabel('Position')
+        self.axes[1].set_ylabel('Position (m)')
         self.axes[1].grid(True, alpha=0.3)
-        self.axes[1].set_ylim(-100.0, 100.0)  # Adjust based on expected foot position range
+        self.axes[1].set_ylim(-0.1, 0.1)  # 旧mmレンジ[-100,100]をmへ換算
         
         right_foot_joints = ["r_foot_x", "r_foot_y", "r_foot_z"]
         foot_colors = ["red", "green", "blue"]
@@ -222,9 +250,9 @@ class RedisPlotter:
         self.left_lines = {}
         self.axes[2].set_title('Left Foot Position')
         self.axes[2].set_xlabel('Time (s)')
-        self.axes[2].set_ylabel('Position')
+        self.axes[2].set_ylabel('Position (m)')
         self.axes[2].grid(True, alpha=0.3)
-        self.axes[2].set_ylim(-100.0, 100.0)  # Adjust based on expected foot position range
+        self.axes[2].set_ylim(-0.1, 0.1)  # 旧mmレンジ[-100,100]をmへ換算
         
         left_foot_joints = ["l_foot_x", "l_foot_y", "l_foot_z"]
         for i, joint in enumerate(left_foot_joints):
@@ -240,6 +268,15 @@ class RedisPlotter:
                          list(self.left_lines.values()) + 
                          list(self.right_lines.values()))
 
+        # X軸タイトルを右端に配置
+        self._align_xlabels_to_right()
+
+    def _align_xlabels_to_right(self):
+        """X軸ラベルを各グラフの右端に寄せる"""
+        for ax in self.axes:
+            ax.xaxis.label.set_horizontalalignment('right')
+            ax.xaxis.set_label_coords(1.0, -0.08)
+
     def _setup_control_buttons(self):
         """コントロールボタンの設定"""
         # 1つのボタンで切り替える方式
@@ -252,24 +289,70 @@ class RedisPlotter:
         # ボタンのイベントハンドラを設定
         self.control_button.on_clicked(self._toggle_animation)
 
+    def _connect_resize_handler(self):
+        """ウィンドウリサイズ時にフォントを調整するイベントを登録"""
+        self.fig.canvas.mpl_connect('resize_event', self._on_resize)
+
+    def _on_resize(self, _event):
+        self._apply_responsive_fonts()
+
+    def _apply_responsive_fonts(self):
+        """図の面積変化に合わせて文字サイズを自動調整"""
+        w, h = self.fig.get_size_inches()
+        bw, bh = self.base_fig_size
+        if bw <= 0 or bh <= 0:
+            scale = 1.0
+        else:
+            # 面積比の平方根でスケール（縦横どちらかだけ極端でも過敏になりにくい）
+            scale = np.sqrt((w * h) / (bw * bh))
+
+        # 読みやすさを保つための下限/上限
+        scale = float(np.clip(scale, 0.6, 1.4))
+
+        title_fs = self.base_font_sizes['title'] * scale
+        label_fs = self.base_font_sizes['label'] * scale
+        tick_fs = self.base_font_sizes['tick'] * scale
+        legend_fs = self.base_font_sizes['legend'] * scale
+        button_fs = self.base_font_sizes['button'] * scale
+
+        for ax in self.axes:
+            ax.title.set_fontsize(title_fs)
+            ax.xaxis.label.set_fontsize(label_fs)
+            ax.yaxis.label.set_fontsize(label_fs)
+            ax.tick_params(axis='both', labelsize=tick_fs)
+
+            legend = ax.get_legend()
+            if legend is not None:
+                for text in legend.get_texts():
+                    text.set_fontsize(legend_fs)
+
+        if hasattr(self, 'control_button') and self.control_button is not None:
+            self.control_button.label.set_fontsize(button_fs)
+
+        self.fig.canvas.draw_idle()
+
     def _toggle_animation(self, event):
         """アニメーションの停止・再開を切り替え"""
         if self.animation_paused:
             # 現在停止中 → 再開
             self.animation_paused = False
+            if self.ani is not None and self.ani.event_source is not None:
+                self.ani.event_source.start()
             self.control_button.label.set_text('Pause')
             self.control_button.color = 'blue'
             self.control_button.hovercolor = 'darkblue'
         else:
             # 現在実行中 → 停止
             self.animation_paused = True
+            if self.ani is not None and self.ani.event_source is not None:
+                self.ani.event_source.stop()
             self.control_button.label.set_text('Resume')
             self.control_button.color = 'green'
             self.control_button.hovercolor = 'darkgreen'
         
         # ボタンの背景色を更新
         self.control_button.ax.set_facecolor(self.control_button.color)
-        plt.draw()
+        self.fig.canvas.draw_idle()
 
     # Moved from redis_receiver.py: get_joint_groups() function
     def get_joint_groups(self):
@@ -400,7 +483,7 @@ class RedisPlotter:
     def run(self, interval=10):
         """Run the animation with specified interval (in milliseconds)"""
         try:
-            ani = animation.FuncAnimation(
+            self.ani = animation.FuncAnimation(
                 self.fig, 
                 self.update_plot, 
                 interval=interval,
@@ -417,25 +500,40 @@ class RedisPlotter:
 
 def main():
     # コマンドライン引数の処理
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--width', type=int, default=8, help='Figure width in inches')
-    parser.add_argument('--height', type=int, default=9, help='Figure height in inches')
-    parser.add_argument('--window', type=float, default=5.0, help='Time window size in seconds')
-    parser.add_argument('--log', type=str, default='off', help='Enable logging of base joint values (on/off)')
-    parser.add_argument('--redis-key', type=str, default='meridis', help='Redis key name to read data from(default:meridis)')
-    parser.add_argument('--display', type=str, default='joint', help='Display mode: joint (all joint angles) or foot (foot positions)')
+    parser = argparse.ArgumentParser(
+        description='Redis Plotter - リアルタイム関節角度・足先位置可視化ツール',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('--redis', type=str, default='redis.json',
+                        help='Redis設定JSONファイル (merimujoco.py と同形式)')
+    parser.add_argument('--redis-key', type=str, default=None,
+                        help='読み取るRedisキー名 (省略時はJSONのredis_keys.readを使用)')
+    parser.add_argument('--width', type=int, default=8,
+                        help='グラフ幅 (インチ)')
+    parser.add_argument('--height', type=int, default=9,
+                        help='グラフ高さ (インチ)')
+    parser.add_argument('--window', type=float, default=5.0,
+                        help='表示する時間窓 (秒)')
+    parser.add_argument('--log', type=str, default='off', choices=['on', 'off'],
+                        help='Redisデータのログ出力')
+    parser.add_argument('--display', type=str, default='joint', choices=['joint', 'foot'],
+                        help='表示モード: joint=関節角度, foot=足先位置')
     args = parser.parse_args()
+
+    # Redis設定をJSONから読み込む (merimujoco.py と同じ方式)
+    redis_host, redis_port, redis_key_from_json = load_redis_config(args.redis)
+    redis_key = args.redis_key if args.redis_key is not None else redis_key_from_json
 
     # 起動時の情報表示（meridis_manager.pyと同じスタイル）
     print(f"Redis Plotter started. This PC's IP address is {get_local_ip()}")
-    print(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT} for key '{args.redis_key}'")
+    print(f"Connected to Redis at {redis_host}:{redis_port} for key '{redis_key}'")
     print(f"Plot window: {args.window} seconds, Figure size: {args.width*100}x{args.height*100} pixels")
     print(f"Log output: {'enabled' if args.log.lower() == 'on' else 'disabled'}")
     print(f"Display mode: {args.display}")
     print(f"Animation interval: 10ms")
-    
-    # RedisReceiverのインスタンス化（IPアドレスを指定）
-    receiver = RedisReceiver(host=REDIS_HOST, window_size=args.window, redis_key=args.redis_key)
+
+    # RedisReceiverのインスタンス化
+    receiver = RedisReceiver(host=redis_host, port=redis_port, window_size=args.window, redis_key=redis_key)
     
     # ログ機能の有効/無効を判定
     enable_log = args.log.lower() == 'on'

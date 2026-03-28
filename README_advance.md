@@ -269,15 +269,15 @@ sequenceDiagram
 具体的な index 範囲はコードの `write_redis_data()` 内に実装されています。実際の変換ロジックや範囲を確認する場合は `meridis_manager.py` の該当関数を参照してください。
 
 ```python
-  # --foot on の場合：指定されたrangeのみ1/100する
+  # --foot on の場合：関節角度は1/100、足位置は1/100000（mm×100→m）
   for i in range(21, 47, 2):
       data[i] = float(data[i] / 100)
-  for i in range(46, 50):   # x,y,z,(r)
-      data[i] = float(data[i] / 100) 
+  for i in range(46, 50):   # 左足位置 x,y,z,(r) mm×100 → m
+      data[i] = float(data[i] / 100000) 
   for i in range(51, 77, 2):
       data[i] = float(data[i] / 100)
-  for i in range(76, 80):   # x,y,z,(r)
-      data[i] = float(data[i] / 100)
+  for i in range(76, 80):   # 右足位置 x,y,z,(r) mm×100 → m
+      data[i] = float(data[i] / 100000)
 ```
 
 
