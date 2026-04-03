@@ -33,7 +33,7 @@
 
 
 **対応シミュレータ:**
-- ✅ **merimujoco**（MuJoCo ベース）- [リポジトリ](https://github.com/holypong/merimujoco)
+- ✅ **merimujoco**（MuJoCo ベース）- https://github.com/holypong/merimujoco
 
 ![merimujoco](image/merimujoco.png)
 
