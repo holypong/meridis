@@ -228,7 +228,7 @@ All keys created.
   - `meridis_calc_pub`
   - `meridis_console_pub`
   - `meridis_mgr_pub`
-  - `meridis_mcp_pub`
+  - `meridis_ai_pub`
 - 各キーは90要素のハッシュとして作成され、全てのフィールドに値0が設定されます。
 - キーが既に存在する場合はスキップし、メッセージを表示します。
 - 接続に失敗した場合はエラーメッセージを表示してスキップします。
@@ -239,7 +239,7 @@ redis-cli
 127.0.0.1:6379> ping
 PONG
 127.0.0.1:6379> keys *
-1) "meridis_mcp_pub"
+1) "meridis_ai_pub"
 2) "meridis_console_pub"
 3) "meridis_mgr_pub"
 4) "meridis_calc_pub"

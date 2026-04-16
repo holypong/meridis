@@ -185,7 +185,7 @@ Redisデータベース内でデータを識別するための名前。本プロ
 - `meridis_calc_pub`: 動作生成プログラムが出力するデータ
 - `meridis_console_pub`: コンソールアプリが出力するデータ
 - `meridis_mgr_pub`: マネージャーが実機から受信したデータ
-- `meridis_mcp_pub`: MCPサーバーが出力するデータ
+- `meridis_ai_pub`: MCPサーバーが出力するデータ
 
 **data_flow（データフロー）**  
 マネージャー設定ファイル内のパラメータ。データの流れる方向を制御：
