@@ -1,0 +1,14 @@
+{
+  "redis": {
+    "host": "172.22.95.231",
+    "port": 6379
+  },
+  "redis_keys": {
+    "read": "meridis_ai_pub",
+    "write": "meridis_mgr_pub"
+  },
+  "data_flow": {
+    "redis_to_udp": true,
+    "udp_to_redis": true
+  }
+}
