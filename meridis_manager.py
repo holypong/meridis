@@ -329,6 +329,7 @@ def write_redis_data():
             data[16] = lx
             data[17] = ly
             data[18] = rx
+            data[19] = ry
 
         # redis_transfer.pyを使用してデータを書き込む
         if FLG_UDPRCV_REDISWRITE == True:        # UDP受信データをRedisに書き込むフラグ
