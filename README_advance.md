@@ -451,3 +451,36 @@ python redis_plotter.py --width 12 --height 8 --window 10 --log on --display foo
 
 実装の詳細や利用可能なクラス・関数については `redis_plotter.py` を参照してください（`RedisPlotter`、`get_joint_data_series`、`update_plot` など）。
 
+
+
+## データ収集ツール：redis_logger.py
+
+PADコントローラのボタンをトリガとして、Redisからリアルタイムにデータを収集し `log/logs-YYYYMMDDHHMM.csv` に保存するスタンドアロンツールです。
+
+### 使い方
+
+```bash
+python redis_logger.py --btn 1                              # ボタン値=1 の間だけ録画
+python redis_logger.py --btn 512 --redis redis-mgr.json    # 実機用Redis設定で録画
+python redis_logger.py --btn 3 --interval 20               # ポーリング間隔 20 ms
+python redis_logger.py --btn 1 --redis-key meridis_sim_pub # Redisキーを直接指定
+```
+
+### オプション
+
+| オプション | デフォルト | 説明 |
+|---|---|---|
+| `--btn` | （必須） | 録画トリガとなる PAD ボタン値（Meridim90[15] の整数値） |
+| `--redis` | `redis.json` | Redis接続設定JSONファイル |
+| `--redis-key` | JSON の `redis_keys.read` | 読み取るRedisキー名（省略時はJSONから取得） |
+| `--interval` | `10.0` ms | ポーリング間隔 |
+
+### 動作仕様
+
+- ボタン値が `--btn` と一致している間だけバッファにデータを蓄積
+- ボタン値が変化するか上限（10000行）に達したら `log/` に自動保存
+- Ctrl+C で中断した場合も残バッファを保存
+- 保存形式は `buf_input.csv` と同じ Meridim90 生データ（ヘッダーなし・90列）
+
+---
+
