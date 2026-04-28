@@ -39,12 +39,15 @@
 
 - ✅ **Genesis AI**
 
-![merimujoco](image/genesisai.png)
+![genesis](image/genesisai.png)
+
+
+- ✅ **NVIDIA Newton**
+![newton](image/newton.png)
 
 - ✅ **NVIDIA Isaac Sim**
 
-![merimujoco](image/isaacsim.png)
-
+![isaacsim](image/isaacsim.png)
 
 
 ---
