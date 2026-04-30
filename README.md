@@ -45,7 +45,7 @@
 - ✅ **NVIDIA Newton**
 ![newton](image/newton.png)
 
-- ✅ **NVIDIA Isaac Sim**
+- ✅ **NVIDIA Isaac Sim(Physix)**
 
 ![isaacsim](image/isaacsim.png)
 
