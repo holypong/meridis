@@ -1,5 +1,7 @@
 # meridis - 背景・目的・用語集
 
+[English](README_concept_EN.md) / Japanese
+
 本プロジェクトを支える考え方、フィジカルAIとの関係性、そして開発に必要な基礎用語を解説します。  
 「なぜmeridis?」「なぜMuJoCo?」「どんな世界がひろがる?」を知りたい方はこちらをご覧ください。  
 <BR>

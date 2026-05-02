@@ -1,5 +1,7 @@
 # meridis - 技術仕様
 
+[English](README_advance_EN.md) / Japanese
+
 **meridis**の詳細な技術仕様、設定ファイルの構造、カスタマイズ方法を解説します。  
 システムを拡張したい、独自の設定で動かしたい方はこちらをご覧ください。  
 <BR>

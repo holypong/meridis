@@ -1,5 +1,8 @@
 # meridis
 
+[English](README_EN.md) / Japanese
+
+
 `meridis` は Redis をベースとした**ロボット制御データブリッジツール**です。  
 シミュレーション、実機ロボット、AIエージェントを共通のデータ構造でシームレスに接続します。
 
