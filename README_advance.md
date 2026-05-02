@@ -17,7 +17,7 @@
   - [マネージャーオプション（--mgr）](#マネージャーオプション--mgr)
     - [mgr_sim2real.json](#mgr_sim2realjson)
     - [mgr_real2sim.json](#mgr_real2simjson)
-    - [mgr_ai2real.json](#mgr_mcp2realjson)
+    - [mgr_ai2real.json](#mgr_ai2realjson)
   - [ネットワークオプション（--network）](#ネットワークオプション--network)
   - [フットオプション(--foot)](#フットオプション--foot)
 - [ライブラリの詳細](#ライブラリの詳細)
