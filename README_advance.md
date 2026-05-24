@@ -1,5 +1,7 @@
 # meridis - 技術仕様
 
+[English](README_advance_EN.md) / Japanese
+
 **meridis**の詳細な技術仕様、設定ファイルの構造、カスタマイズ方法を解説します。  
 システムを拡張したい、独自の設定で動かしたい方はこちらをご覧ください。  
 <BR>
@@ -15,7 +17,7 @@
   - [マネージャーオプション（--mgr）](#マネージャーオプション--mgr)
     - [mgr_sim2real.json](#mgr_sim2realjson)
     - [mgr_real2sim.json](#mgr_real2simjson)
-    - [mgr_mcp2real.json](#mgr_mcp2realjson)
+    - [mgr_ai2real.json](#mgr_ai2realjson)
   - [ネットワークオプション（--network）](#ネットワークオプション--network)
   - [フットオプション(--foot)](#フットオプション--foot)
 - [ライブラリの詳細](#ライブラリの詳細)
@@ -71,7 +73,7 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 
 - `--mgr`（デフォルト: `mgr_sim2real.json`）: マネージャー設定 JSON ファイルのパス
 - `--network`（デフォルト: `network.json`）: ネットワーク設定 JSON ファイルのパス  
-- `--foot`（デフォルト: `off`）: 足部データの 1/100 スケーリング設定（`off`/`on`）
+- `--foot`（デフォルト: `off`）: 足部データの詳細スケーリング設定（`off`/`on`）
 
 ### 動作
 
@@ -79,7 +81,11 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 - マネージャー設定の `data_flow` に基づいて、Redis→UDP、UDP→Redis の各方向でのデータ転送を制御します。
 - Redis のハッシュデータ（90要素）を読み取り、Meridim90 バイナリフォーマットに変換して UDP パケットとして送信します。
 - UDP で受信した Meridim90 データをパースし、Redis のハッシュとして書き戻します。
-- `--foot on` オプション時は、足部関連の特定インデックス範囲（21-47, 46-50, 51-77, 76-80）でのデータに 1/100 スケーリングを適用します。
+- `--foot on` オプション時は以下のスケーリングを適用します：
+  - 関節角度データ（インデックス21,23,25,...45 および 51,53,55,...75）: 1/100 スケーリング
+  - 左足位置データ（インデックス46-49）: 1/100000 スケーリング（mm×100→m変換）
+  - 右足位置データ（インデックス76-79）: 1/100000 スケーリング（mm×100→m変換）
+- `--foot off` オプション時は、インデックス21-80の偶数インデックスすべてに 1/100 スケーリングを適用します。
 - 転送処理は継続的なループで実行され、リアルタイムでのデータ同期を実現します。
 
 
@@ -94,7 +100,7 @@ python meridis_manager.py --mgr MGR_FILE --network NETWORK_FILE --foot FOOT_MODE
 | `meridis_calc_pub` | 動作生成プログラム | シミュレータ / 実機 | 数値制御 |
 | `meridis_console_pub` | Meridian_console | シミュレータ / 実機 | コンソールUIからの操作 |
 | `meridis_mgr_pub` | meridis_manager | シミュレータ / 実機 / MCP | 実機主導の制御 |
-| `meridis_mcp_pub` | AIエージェント+MCP | シミュレータ / 実機 | AI主導の制御 |
+| `meridis_ai_pub` | AIエージェント+MCP | シミュレータ / 実機 | AI主導の制御 |
 
 
 #### mgr_sim2real.json
@@ -131,10 +137,10 @@ sequenceDiagram
     participant MMD as meridis-manager.py
     participant ROB as リアルロボット
 
-    Note right of HOST: キー: meridis_mcp_pub
-    HOST->>R: HSET meridis_mcp_pub // ホストが指令を格納
-    Note right of R: キー: meridis_mcp_pub
-    SIM->>R: HGETALL meridis_mcp_pub  // シミュレータが指令を取得
+    Note right of HOST: キー: meridis_ai_pub
+    HOST->>R: HSET meridis_ai_pub // ホストが指令を格納
+    Note right of R: キー: meridis_ai_pub
+    SIM->>R: HGETALL meridis_ai_pub  // シミュレータが指令を取得
     Note right of R: キー: meridis_sim_pub
     SIM->>R: HSET meridis_sim_pub // シミュレータが演算結果を格納
     ROB->>MMD: UDP受信  // 実機から実行結果を受信
@@ -188,11 +194,11 @@ sequenceDiagram
     SIM->>R: HSET meridis_sim_pub // シミュレータが演算結果を格納
 ```
 
-#### mgr_mcp2real.json
+#### mgr_ai2real.json
 
 Meridianを搭載したロボット実機がある場合、AIエージェントがMCPサーバー経由でロボット実機の動きを指令します。
 
-以下は `mgr_mcp2real.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
+以下は `mgr_ai2real.json` の例です（実際のファイルはリポジトリ内のものを参照してください）：
 
 ```json
 {
@@ -201,7 +207,7 @@ Meridianを搭載したロボット実機がある場合、AIエージェント�
     "port": 6379
   },
   "redis_keys": {
-    "read": "meridis_mcp_pub",
+    "read": "meridis_ai_pub",
     "write": "meridis_mgr_pub"
   },
   "data_flow": {
@@ -222,11 +228,11 @@ sequenceDiagram
     participant MMD as meridis-manager.py
     participant ROB as リアルロボット
 
-    Note right of HOST: キー: meridis_mcp_pub
-    HOST->>R: HSET meridis_mcp_pub // ホストが指令を格納
+    Note right of HOST: キー: meridis_ai_pub
+    HOST->>R: HSET meridis_ai_pub // ホストが指令を格納
     ROB->>MMD: UDP受信  // 実機から実行結果を受信
-    Note right of R: キー: meridis_mcp_pub
-    MMD->>R: HGETALL meridis_mcp_pub  // meridis-manager が指令を取得
+    Note right of R: キー: meridis_ai_pub
+    MMD->>R: HGETALL meridis_ai_pub  // meridis-manager が指令を取得
     Note right of R: キー: meridis_mgr_pub
     MMD->>R: HSET meridis_mgr_pub  // meridis-manager が実行結果を格納
     MMD->>ROB: UDP送信  // 実機へ指令を送信
@@ -260,24 +266,26 @@ sequenceDiagram
 ```
 
 ### フットオプション(--foot)
-足の逆運動学計算の状況をモニタリングするオプションです。足のXYZ位置を登録する処理が入っている場合のみ有用です。
+足の逆運動学計算に基づく位置データのスケーリングを制御するオプションです。足のXYZ位置を登録する処理が入っている場合に使用します。
 
-- `off` (デフォルト): 送信用サーボ位置データ（index 21–80 の偶数番）を 100 倍して送信し、受信時は 1/100 に戻す処理を行う（従来動作）
+- `off` (デフォルト): 全サーボ位置データ（インデックス 21-80 の偶数番）を 1/100 スケーリングする（従来動作）
 
-- `on`: 足部分の指定範囲のみ 1/100 スケーリングを行う（コード中の範囲に準拠）
+- `on`: 関節角度データと足位置データを個別にスケーリングする：
+  - 関節角度データ（インデックス 21,23,25,...45 および 51,53,55,...75）: 1/100 スケーリング
+  - 左足位置データ（インデックス 46-49）: 1/100000 スケーリング（mm×100→m変換）
+  - 右足位置データ（インデックス 76-79）: 1/100000 スケーリング（mm×100→m変換）
 
-具体的な index 範囲はコードの `write_redis_data()` 内に実装されています。実際の変換ロジックや範囲を確認する場合は `meridis_manager.py` の該当関数を参照してください。
+具体的な実装は `meridis_manager.py` の `write_redis_data()` 関数内にあります：
 
 ```python
-  # --foot on の場合：指定されたrangeのみ1/100する
-  for i in range(21, 47, 2):
-      data[i] = float(data[i] / 100)
-  for i in range(46, 50):   # x,y,z,(r)
-      data[i] = float(data[i] / 100) 
-  for i in range(51, 77, 2):
-      data[i] = float(data[i] / 100)
-  for i in range(76, 80):   # x,y,z,(r)
-      data[i] = float(data[i] / 100)
+# --foot on の場合：関節角度は1/100、足位置は1/100000（mm×100→m）
+data[21:47:2] /= 100.0        # 関節角度（2ステップ刻み）
+data[46:50] /= 100000.0       # 左足位置 x,y,z,r (mm×100 → m)
+data[51:77:2] /= 100.0        # 関節角度（2ステップ刻み）
+data[76:80] /= 100000.0       # 右足位置 x,y,z,r (mm×100 → m)
+
+# --foot off の場合：従来通りの処理
+data[21:81:2] /= 100.0        # 全サーボ位置データ（2ステップ刻み）
 ```
 
 
@@ -444,4 +452,37 @@ python redis_plotter.py --width 12 --height 8 --window 10 --log on --display foo
 ```
 
 実装の詳細や利用可能なクラス・関数については `redis_plotter.py` を参照してください（`RedisPlotter`、`get_joint_data_series`、`update_plot` など）。
+
+
+
+## データ収集ツール：redis_logger.py
+
+PADコントローラのボタンをトリガとして、Redisからリアルタイムにデータを収集し `log/logs-YYYYMMDDHHMM.csv` に保存するスタンドアロンツールです。
+
+### 使い方
+
+```bash
+python redis_logger.py --btn 1                              # ボタン値=1 の間だけ録画
+python redis_logger.py --btn 512 --redis redis-mgr.json    # 実機用Redis設定で録画
+python redis_logger.py --btn 3 --interval 20               # ポーリング間隔 20 ms
+python redis_logger.py --btn 1 --redis-key meridis_sim_pub # Redisキーを直接指定
+```
+
+### オプション
+
+| オプション | デフォルト | 説明 |
+|---|---|---|
+| `--btn` | （必須） | 録画トリガとなる PAD ボタン値（Meridim90[15] の整数値） |
+| `--redis` | `redis.json` | Redis接続設定JSONファイル |
+| `--redis-key` | JSON の `redis_keys.read` | 読み取るRedisキー名（省略時はJSONから取得） |
+| `--interval` | `10.0` ms | ポーリング間隔 |
+
+### 動作仕様
+
+- ボタン値が `--btn` と一致している間だけバッファにデータを蓄積
+- ボタン値が変化するか上限（10000行）に達したら `log/` に自動保存
+- Ctrl+C で中断した場合も残バッファを保存
+- 保存形式は `buf_input.csv` と同じ Meridim90 生データ（ヘッダーなし・90列）
+
+---
 
