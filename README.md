@@ -58,7 +58,10 @@
 https://github.com/MicrosoftArchive/redis/releases
 1. ダウンロードした「Redis-x64***.msi」をダブルクリックしてredisをインストールする。
 
-インストール後、Redisのコマンド（redis-server, redis-cliなど）がコマンドプロンプトから実行できることを確認してください。もし実行できない場合は、環境変数PATHにRedisのインストールディレクトリ（通常 C:\Program Files\Redis\）を追加してください。
+インストール後、Redisのコマンド（redis-server, redis-cliなど）がコマンドプロンプトから実行できることを確認してください。
+
+もし実行できない場合は、環境変数PATHにRedisのインストールディレクトリ（通常 C:\Program Files\Redis\）を追加してください
+（インストール時にPATH追加する、のチェックをONにすると確実です）
 
 
 ### Linux-Ubuntuの場合
@@ -132,7 +135,7 @@ PONG
 （例えば、Windows 11 と WSL-Ubuntu を連携させるなど）　
 
 1. Windows Operation
-```basj
+```bash
 redis-server
 ```
 2. Windows Operation
@@ -215,6 +218,8 @@ sudo nano /etc/redis/redis.conf
 - キーの初期化は一度だけ行えば十分です。繰り返し実行しても既存キーは上書きされません。
 
 ```bash
+pip install redis
+
 python create_meridis_keys.py
 Enter Redis server IP address: 127.0.0.1
 
