@@ -67,8 +67,6 @@ https://github.com/MicrosoftArchive/redis/releases
 インストール後、Redisのコマンド（redis-server, redis-cliなど）がコマンドプロンプトから実行できることを確認してください。
 
 もし実行できない場合は、環境変数PATHにRedisのインストールディレクトリ（通常 C:\Program Files\Redis\）を追加してください
-（インストール時にPATH追加する、のチェックをONにすると確実です）
-
 
 ### Linux-Ubuntuの場合
 1. 下記サイトを確認する

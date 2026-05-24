@@ -222,6 +222,8 @@ sudo nano /etc/redis/redis.conf
 - Key initialization only needs to be done once. Running it again will not overwrite existing keys.
 
 ```bash
+pip install redis
+
 python create_meridis_keys.py
 Enter Redis server IP address: 127.0.0.1
 
